@@ -14,7 +14,7 @@ else
     source $MAIN_ROOT/tools/venv/bin/activate
 fi
 export PATH=$MAIN_ROOT/utils:$MAIN_ROOT/espnet/bin:$PATH
-export PATH=$MAIN_ROOT/tools/PESQ/P862/Software/source:$PATH
+export PATH=$MAIN_ROOT/tools/PESQ/P862_annex_A_2005_CD/source:$PATH
 
 export OMP_NUM_THREADS=1
 
@@ -34,3 +34,6 @@ if ! which PESQ > /dev/null; then
     echo "Error: cd ${MAIN_ROOT}/tools && make pesq" >&2
     return 1
 fi
+
+# NOTE(kan-bayashi): Use UTF-8 in Python to avoid UnicodeDecodeError when LC_ALL=C
+export PYTHONIOENCODING=UTF-8

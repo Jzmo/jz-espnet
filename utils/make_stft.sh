@@ -5,6 +5,7 @@
 
 # Begin configuration section.
 nj=4
+fs=none
 n_fft=1024
 n_shift=512
 win_length=
@@ -31,7 +32,7 @@ echo "$0 $*"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 if [ $# -lt 1 ] || [ $# -gt 3 ]; then
-    echo $help_message
+    echo "${help_message}"
     exit 1;
 fi
 
@@ -113,6 +114,7 @@ else
 
 ${cmd} JOB=1:${nj} ${logdir}/make_stft_${name}.JOB.log \
     compute-stft-feats.py \
+        --fs ${fs} \
         --win_length ${win_length} \
         --n_fft ${n_fft} \
         --n_shift ${n_shift} \

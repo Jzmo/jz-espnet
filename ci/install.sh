@@ -6,59 +6,36 @@ set -euo pipefail
 
 $CXX -v
 
-if [[ ${USE_CONDA} == false ]]; then
-    if [[ ${TH_VERSION} == nightly ]]; then
-        pip install torch_nightly -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+( 
+    set -euo pipefail
+    cd tools
+    # To suppress the installation for Kaldi
+    touch kaldi.done
+    if ${USE_CONDA}; then
+        make PYTHON_VERSION="${ESPNET_PYTHON_VERSION}" TH_VERSION="${TH_VERSION}"
     else
-        pip install --quiet torch=="${TH_VERSION}" -f https://download.pytorch.org/whl/cpu/stable
+        make PYTHON="$(which python)" TH_VERSION="${TH_VERSION}"
     fi
-else
-    (
-        cd tools
-        make PYTHON_VERSION=${ESPNET_PYTHON_VERSION} venv
-    )
-    . tools/venv/etc/profile.d/conda.sh
-    conda config --set always_yes yes
-    conda activate
-    conda update -y conda
-    if [[ ${TH_VERSION} == nightly ]]; then
-        conda install -q -y pytorch-nightly-cpu -c pytorch
-    else
-        conda install -q -y pytorch-cpu="${TH_VERSION}" -c pytorch
-    fi
-    conda install -c conda-forge ffmpeg
+    rm kaldi.done
+)
+if [ -z "${PS1:-}" ]; then
+    PS1=__dummy__
 fi
-
+. tools/venv/bin/activate
 python --version
 
-pip install -U pip wheel
+pip install -U wheel
+# Fix pip version to avoid this error https://github.com/ethereum/eth-abi/issues/131#issuecomment-620981271
+pip install pip==20.0.2
 pip install chainer=="${CHAINER_VERSION}"
+pip install https://github.com/kpu/kenlm/archive/master.zip
 
 # install espnet
-pip install -e .
 pip install -e ".[test]"
 pip install -e ".[doc]"
 
 # [FIXME] hacking==1.1.0 requires flake8<2.7.0,>=2.6.0, but that version has a problem around fstring
-pip install -U flake8
-
-# install matplotlib
-pip install matplotlib
-
-# install warp-ctc (use @jnishi patched version)
-git clone https://github.com/jnishi/warp-ctc.git -b pytorch-1.0.0
-cd warp-ctc && mkdir build && cd build && cmake .. && make -j4 && cd ..
-pip install cffi
-cd pytorch_binding && python setup.py install && cd ../..
-
-# install kaldiio
-pip install git+https://github.com/nttcslab-sp/kaldiio.git
-
-# install chainer_ctc
-pip install cython
-git clone https://github.com/jheymann85/chainer_ctc.git
-cd chainer_ctc && chmod +x install_warp-ctc.sh && ./install_warp-ctc.sh
-pip install . && cd ..
+pip install -U flake8 flake8-docstrings
 
 # log
 pip freeze

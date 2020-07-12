@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Download zipfile from google drive
+# Download zip, tar, or tar.gz file from google drive
 
 # Copyright 2019 Tomoki Hayashi
 #  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
@@ -9,13 +9,13 @@ share_url=$1
 download_dir=${2:-"downloads"}
 file_ext=${3:-"zip"}
 
-if [ $1 == "--help" ] || [ $# -lt 1 ] || [ $# -gt 3 ]; then
+if [ "$1" = "--help" ] || [ $# -lt 1 ] || [ $# -gt 3 ]; then
    echo "Usage: $0 <share-url> [<download_dir> <file_ext>]";
-   echo "e.g.: $0 https://drive.google.com/open?id=1zF88bRNbJhw9hNBq3NrDg8vnGGibREmg downloads .zip"
+   echo "e.g.: $0 https://drive.google.com/open?id=1zF88bRNbJhw9hNBq3NrDg8vnGGibREmg downloads zip"
    echo "Options:"
    echo "    <download_dir>: directory to save downloaded file. (Default=downloads)"
    echo "    <file_ext>: file extension of the file to be downloaded. (Default=zip)"
-   if [ $1 == "--help" ]; then
+   if [ "$1" = "--help" ]; then
        exit 0;
    fi
    exit 1;
@@ -41,22 +41,11 @@ decompress () {
     fi
 }
 
-# Try-catch like processing
-(
-    wget "https://drive.google.com/uc?export=download&id=${file_id}" -O "${tmp}"
-    decompress "${tmp}" "${download_dir}"
-) || {
-    # Do not allow error from here
-    set -e
-    # sometimes, wget from google drive is failed due to virus check confirmation
-    # to avoid it, we need to do some tricky processings
-    # see https://stackoverflow.com/questions/20665881/direct-download-from-google-drive-using-google-drive-api
-    curl -c /tmp/cookies "https://drive.google.com/uc?export=download&id=${file_id}" > /tmp/intermezzo.html
-    postfix=$(grep -Po 'uc-download-link" [^>]* href="\K[^"]*' /tmp/intermezzo.html | sed 's/\&amp;/\&/g')
-    curl -L -b /tmp/cookies "https://drive.google.com${postfix}" > "${tmp}"
-    decompress "${tmp}" "${download_dir}"
-}
+set -e
+# Solution from https://github.com/wkentaro/gdown
+gdown --id "${file_id}" -O "${tmp}"
+decompress "${tmp}" "${download_dir}"
 
 # remove tmpfiles
 rm "${tmp}"
-echo "Sucessfully downloaded zip file from ${share_url}"
+echo "Sucessfully downloaded ${file_ext} file from ${share_url}"

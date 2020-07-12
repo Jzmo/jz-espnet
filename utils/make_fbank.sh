@@ -5,7 +5,7 @@
 
 # Begin configuration section.
 nj=4
-fs=22050
+fs=none
 fmax=
 fmin=
 n_mels=80
@@ -35,7 +35,7 @@ echo "$0 $*"  # Print the command line for logging
 . parse_options.sh || exit 1;
 
 if [ $# -lt 1 ] || [ $# -gt 3 ]; then
-    echo $help_message
+    echo "${help_message}"
     exit 1;
 fi
 
