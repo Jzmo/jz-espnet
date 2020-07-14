@@ -11,8 +11,8 @@ process_xml="python"
 
 # general configuration
 backend=pytorch
-stage=2       # start from -1 if you need to start from data download
-stop_stage=100
+stage=0       # start from -1 if you need to start from data download
+stop_stage=0
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -38,13 +38,11 @@ recog_model=model.loss.best # set a model to be used for decoding: 'model.acc.be
 
 # data
 datadir=~/data
+datadir=/export/corpora5
 mgb2_root=${datadir}/MGB-2
 db_dir=DB
 
 mer=80
-
-# Location of lexicon                                                                                 # Download from https://github.com/qcri/ArabicASRChallenge2016/blob/master/lexicon/ar-ar_grapheme_lexi\con
-LEXICON=ar-ar_grapheme_lexicon
 
 nj=100  # split training into how many jobs?
 nDecodeJobs=80
@@ -65,16 +63,17 @@ train_dev="dev"
 lm_test="test"
 recog_set="dev test"
 
-if [ $stage -le 0 ]; then
+if [ $stage -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "Stage 0: Untar and preparing training data"
-    local/mgb_extract_data.sh $mgb2_root $db_dir
+    #mkdir -p $db_dir
+    #local/mgb_extract_data.sh $mgb2_root $db_dir
     local/mgb_data_prep.sh $db_dir $mer $process_xml
 fi
 
 feat_tr_dir=${dumpdir}/${train_set}/delta${do_delta}; mkdir -p ${feat_tr_dir}
 feat_dt_dir=${dumpdir}/${train_dev}/delta${do_delta}; mkdir -p ${feat_dt_dir}
 
-if [ $stage -le 1 ]; then
+if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     ### Task dependent. You have to design training and dev sets by yourself.
     ### But you can utilize Kaldi recipes in most cases
     echo "stage 1: Feature Generation"
@@ -85,11 +84,6 @@ if [ $stage -le 1 ]; then
 				  data/${x} exp/make_fbank/${x} ${fbankdir}
 	utils/fix_data_dir.sh data/${x}
     done
-
-    # make a dev set
-    utils/subset_data_dir.sh --first data/train 100 data/${train_dev}
-    n=$(($(wc -l < data/train/text) - 100))
-    utils/subset_data_dir.sh --last data/train ${n} data/${train_set}
 
     # compute global CMVN
     compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
@@ -114,7 +108,7 @@ if [ $stage -le 2 ]; then
     echo "Preparing dictionary"
     mkdir -p data/lang_1char/
     echo "<unk> 1" > ${dict} # <unk> must be 1, 0 will be used for "blank" in CTC
-    text2token.py -s 1 -n 1 data/${train_set}/text | cut -f 2- -d" " | tr " " "\n" \
+    text2token.py -s 1 -n 1 ${db_dir}/${train_set}/lm_text/lm_text_clean_bw | cut -f 2- -d" " | tr " " "\n" \
 	| sort | uniq | grep -v -e "^\s*$" | awk '{print $0 " " NR+1}' >> ${dict}
     wc -l ${dict}
     

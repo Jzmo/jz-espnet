@@ -9,7 +9,7 @@ if [[ ! -e "$1/train.tar.gz" || ! -e "$1/dev.tar.gz" ]]; then
 fi
 
 if [ $# -ne 2 ]; then
-    echo "Usage: $0 <.tar-dir> <target-dir>"
+    echo "Usage: $0 <.tar-dir> <DB-dir>"
     exit 0
 fi
 

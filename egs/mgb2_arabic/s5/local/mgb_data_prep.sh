@@ -31,12 +31,12 @@ find $db_dir/train/wav -type f -name "*.wav" |\
 				   $train_dir/wav_list
 
 # Creating the train program lists
-head -500 $train_dir/wav_list > $list_dir/wav_list.short
+head -500 $train_dir/wav_list > $train_dir/wav_list.short
 
 set -e -o pipefail
 
 xmldir=$db_dir/train/xml/bw
-if [ $process_xml ] == "python"; then
+if [ $process_xml == "python" ]; then
     echo "using python to process xml file"
     # check if bs4 and lxml are install in python
     local/check_tools.sh
@@ -64,7 +64,7 @@ else
     exit 1;
 fi
 
-for x in text segment; do
+for x in text segments; do
     cp $db_dir/dev/${x}.all $dev_dir/${x}
 done
 
