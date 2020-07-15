@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+set -x
 # Copyright (C) 2016, Qatar Computing Research Institute, HBKU
 #               2016-2019  Vimal Manohar
 #               2019 Dongji Gao
@@ -21,7 +22,7 @@ dev_dir=data/dev
 for x in $train_dir $dev_dir; do
     mkdir -p $x
     if [ -f ${x}/wav.scp ]; then
-	mdkir -p ${x}/.backup
+	mkdir -p ${x}/.backup
 	mv ${x}/{wav.scp,feats.scp,utt2spk,spk2utt,segments,text} ${x}/.backup
     fi
 done
@@ -29,9 +30,6 @@ done
 find $db_dir/train/wav -type f -name "*.wav" |\
     awk -F/ '{print $NF}' | perl -pe 's/\.wav//g' >\
 				   $train_dir/wav_list
-
-# Creating the train program lists
-head -500 $train_dir/wav_list > $train_dir/wav_list.short
 
 set -e -o pipefail
 
@@ -44,6 +42,7 @@ if [ $process_xml == "python" ]; then
     cat $train_dir/wav_list | while read basename; do
 	[ ! -e $xmldir/$basename.xml ] && echo "Missing $xmldir/$basename.xml" && exit 1
 	local/process_xml.py $xmldir/$basename.xml - | local/add_to_datadir.py $basename $train_dir $mer
+        echo $basename $db_dir/train/wav/$basename.wav >> $train_dir/wav.scp
     done
 elif [ $process_xml == 'xml' ]; then
     # check if xml binary exsits
@@ -61,11 +60,10 @@ elif [ $process_xml == 'xml' ]; then
 else
     # invalid option
     echo "$0: invalid option for --process-xml, choose from 'xml' or 'python'"
-    exit 1;
 fi
 
 for x in text segments; do
-    cp $db_dir/dev/${x}.all $dev_dir/${x}
+    awk '(NF)>1' $db_dir/dev/${x}.all > $dev_dir/${x}
 done
 
 find $db_dir/dev/wav -type f -name "*.wav" | \
@@ -77,7 +75,7 @@ for x in $(cat $dev_dir/wav_list); do
 done
 
 #Creating a file reco2file_and_channel which is used by convert_ctm.pl in local/score.sh script
-awk '{print $1" "$1" 1"}' $dev_dir/wav.scp > $dev_dir/reco2file_and_channel
+awk '{print $1" "$1" A"}' $dev_dir/wav.scp > $dev_dir/reco2file_and_channel
 
 # Creating utt2spk for dev from segments
 if [ ! -f $dev_dir/utt2spk ]; then
@@ -97,11 +95,5 @@ for dir in $train_dir $dev_dir ${dev_dir}_overlap ${dev_dir}_non_overlap; do
     utils/fix_data_dir.sh $dir
     utils/validate_data_dir.sh --no-feats $dir
 done
-
-mkdir -p ${train_dir}_subset500
-utils/filter_scp.pl $train_dir/wav_list.short ${train_dir}/wav.scp > \
-		    ${train_dir}_subset500/wav.scp
-cp ${train_dir}/{utt2spk,segments,spk2utt} ${train_dir}_subset500
-utils/fix_data_dir.sh ${train_dir}_subset500
 
 echo "Training and Test data preparation succeeded"
