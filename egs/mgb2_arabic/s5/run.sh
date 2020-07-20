@@ -11,7 +11,7 @@ process_xml="python"
 
 # general configuration
 backend=pytorch
-stage=4
+stage=2
 stop_stage=4
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -23,23 +23,22 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train_mtlalpha0.5.yaml
+train_config=conf/train_rnn.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode_ctcweight1.0.yaml
 
 # rnnlm related
-use_wordlm=true     # false means to train/use a character LM
-lm_vocabsize=65000    # effective only for word LMs
 lmtag=              # tag for managing LMs
 lm_resume=          # specify a snapshot file to resume LM training
+# bpemode(unigram or bpe)
+nbpe=500
+bpemode=unigram
 
 # decoding parameter
 recog_model=model.loss.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
 
 # data
-datadir=~/data
-datadir=/export/corpora5
-mgb2_root=${datadir}/MGB-2
+mgb2_root=/export/corpora5/MGB-2
 db_dir=data/DB
 
 mer=80
@@ -58,17 +57,17 @@ set -e
 set -u
 set -o pipefail
 
-train_set="train_mer${mer}"
-train_dev="dev"
-lm_test="test"
-recog_set="dev_non_overlap dev_overlap test_non_overlap test_overlap"
+train_set="train_mer${mer}_tr90"
+train_dev="train_mer${mer}_cv10"
+lm_test="dev"
+recog_set="dev_non_overlap dev_overlap"
 
 if [ $stage -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "Stage 0: Untar and preparing training data"
     mkdir -p $db_dir
     local/mgb_extract_data.sh $mgb2_root $db_dir
     local/mgb_data_prep.sh $db_dir $mer $process_xml
-    local/mgb_data_prep_test.sh $db_dir
+    utils/subset_data_dir_tr_cv.sh data/train_mer${mer} data/${train_set} data/${train_dev} || exit 1;
 fi
 
 feat_tr_dir=${dumpdir}/${train_set}/delta${do_delta}; mkdir -p ${feat_tr_dir}
@@ -85,6 +84,15 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 	utils/fix_data_dir.sh data/${x}
     done
 
+    for x in ${train_set} ${train_dev}; do
+	if [ -d data/${x}_ori ]; then
+	    rm -r data/${x}_ori
+	fi
+	mv data/${x} data/${x}_ori
+	remove_longshortdata.sh --maxchars 800 data/${x}_ori data/${x}
+	utils/fix_data_dir.sh data/${x}
+    done
+    
     # compute global CMVN
     compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
 
@@ -93,7 +101,7 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 	    data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
     dump.sh --cmd "$train_cmd" --nj 8 --do_delta ${do_delta} \
 	    data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
-    for rtask in ${lm_test} ${recog_set}; do
+    for rtask in ${recog_set}; do
 	feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}; mkdir -p ${feat_recog_dir}
 	dump.sh --cmd "$train_cmd" --nj 8 --do_delta ${do_delta} \
 		data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
@@ -101,69 +109,55 @@ if [ $stage -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     done
 fi
 
-dict=data/lang_1char/${train_set}_units.txt
+dict=data/lang_char/${train_set}_${bpemode}${nbpe}_unit.txt
+bpemodel=data/lang_char/${train_set}_${bpemode}${nbpe}
 text=data/train_mer${mer}/text
-lmtext_extra=DB/train/lm_text/lm_text_clean_bw
+lmtext_extra=data/DB/train/lm_text/lm_text_clean_bw
 echo "dictionary: ${dict}"
 if [ $stage -le 2 ]; then
     ### Task dependent. You have to check non-linguistic symbols used in the corpus.
     echo "stage 2: Dictionary and Json Data Preparation"
-    mkdir -p data/lang_1char/
+    mkdir -p data/lang_char/
     echo "<unk> 1" > ${dict} # <unk> must be 1, 0 will be used for "blank" in CTC
     cleantext=data/train_mer${mer}/text_large
     cut -d ' ' -f 2- $text | cat - $lmtext_extra > $cleantext || exit 1;
-    text2token.py -s 1 -n 1 ${cleantext} | cut -f 2- -d" " | tr " " "\n" \
-	| sort | uniq | grep -v -e "^\s*$" | awk '{print $0 " " NR+1}' >> ${dict}
+    spm_train --input=$cleantext --vocab_size=${nbpe} --model_type=${bpemode} \
+	      --model_prefix=${bpemodel} --input_sentence_size=100000000
+    spm_encode --model=${bpemodel}.model --output_format=piece < ${cleantext} | \
+	tr ' ' '\n' | sort | uniq | awk -v count=1 '{if($0) {print $0 " " ++count}}' >> ${dict}
     wc -l ${dict}
-    
+
     # make json labels
-    data2json.sh --feat ${feat_tr_dir}/feats.scp \
+    data2json.sh --feat ${feat_tr_dir}/feats.scp --bpecode ${bpemodel}.model \
 		 data/${train_set} ${dict} > ${feat_tr_dir}/data.json
-    data2json.sh --feat ${feat_dt_dir}/feats.scp \
+    data2json.sh --feat ${feat_dt_dir}/feats.scp --bpecode ${bpemodel}.model \
 		 data/${train_dev} ${dict} > ${feat_dt_dir}/data.json
-    for rtask in ${lm_test} ${recog_set}; do
+    for rtask in ${recog_set}; do
 	feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
-	data2json.sh --feat ${feat_recog_dir}/feats.scp \
+	data2json.sh --feat ${feat_recog_dir}/feats.scp --bpecode ${bpemodel}.model \
 		     data/${rtask} ${dict} > ${feat_recog_dir}/data.json
     done
 fi
 
+# It takes a few days. If you just want to end-to-end ASR without LM,
+# you can skip this and remove --rnnlm option in the recognition (stage 5)
 if [ -z ${lmtag} ]; then
     lmtag=$(basename ${lm_config%.*})
-    if [ ${use_wordlm} = true ]; then
-	lmtag=${lmtag}_word${lm_vocabsize}
-    fi
 fi
-lmexpname=train_rnnlm_${backend}_${lmtag}
+lmexpname=train_rnnlm_${backend}_${lmtag}_${bpemode}${nbpe}
 lmexpdir=exp/${lmexpname}
 mkdir -p ${lmexpdir}
+
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "stage 3: LM Preparation"
-    if [ ${use_wordlm} = true ]; then
-	lmdatadir=data/local/wordlm_train
-	lmdict=${lmdatadir}/wordlist_${lm_vocabsize}.txt
-	mkdir -p ${lmdatadir}
+    lmdatadir=data/local/lm_train_${bpemode}${nbpe}
+    [ ! -e ${lmdatadir} ] && mkdir -p ${lmdatadir}
 
-	cut -f 2- -d" " data/${train_set}/text > ${lmdatadir}/train.txt 
-	cut -f 2- -d" " data/${train_dev}/text > ${lmdatadir}/valid.txt
-	cut -f 2- -d" " data/${lm_test}/text > ${lmdatadir}/test.txt
-
-	cat ${lmdatadir}/train.txt ${lmtext_extra} > ${lmdatadir}/text.no_oov
-	text2vocabulary.py -s ${lm_vocabsize} -o ${lmdict} ${lmdatadir}/text.no_oov
-    else
-	lmdatadir=data/local/lm_train
-	lmdict=${dict}
-	mkdir -p ${lmdatadir}
-	lmdatadir=data/local/lm_train
-	lmdict=${dict}
-	mkdir -p ${lmdatadir}
-	text2token.py -s 1 -n 1 data/${train_set}/text \
-	    | cut -f 2- -d" " > ${lmdatadir}/train.txt
-	text2token.py -s 1 -n 1 data/${train_dev}/text \
-	    | cut -f 2- -d" " > ${lmdatadir}/valid.txt
-	text2token.py -s 1 -n 1 data/${lm_test}/text \
-	    | cut -f 2- -d" " > ${lmdatadir}/test.txt
-    fi
+    cut -f 2- -d" " data/${train_set}/text | \
+	spm_encode --model=${bpemodel}.model --output_format=piece > ${lmdatadir}/train.txt 
+    cut -f 2- -d" " data/${train_dev}/text | \
+	spm_encode --model=${bpemodel}.model --output_format=piece > ${lmdatadir}/valid.txt
+        
     ${cuda_cmd} --gpu ${ngpu} ${lmexpdir}/train.log \
 		lm_train.py \
 		--config ${lm_config} \
@@ -175,7 +169,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
 		--train-label ${lmdatadir}/train.txt \
 		--valid-label ${lmdatadir}/valid.txt \
 		--resume ${lm_resume} \
-		--dict ${lmdict}
+		--dict ${dict}
 fi
 
 if [ -z ${tag} ]; then
@@ -193,8 +187,8 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 4: Network Training"
     ${cuda_cmd} --gpu ${ngpu} ${expdir}/train.log \
 		asr_train.py \
-		--config ${train_config} \
 		--ngpu ${ngpu} \
+		--config ${train_config} \
 		--backend ${backend} \
 		--outdir ${expdir}/results \
 		--tensorboard-dir tensorboard/${expname} \
@@ -207,3 +201,4 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 		--train-json ${feat_tr_dir}/data.json \
 		--valid-json ${feat_dt_dir}/data.json
 fi
+
