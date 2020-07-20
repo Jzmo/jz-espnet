@@ -11,7 +11,7 @@ process_xml="python"
 
 # general configuration
 backend=pytorch
-stage=2
+stage=4
 stop_stage=4
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -23,7 +23,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train_rnn.yaml
+train_config=conf/train_pytorch_rnn.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode_ctcweight1.0.yaml
 
@@ -41,10 +41,8 @@ recog_model=model.loss.best # set a model to be used for decoding: 'model.acc.be
 mgb2_root=/export/corpora5/MGB-2
 db_dir=data/DB
 
-mer=80
 
-nj=100  # split training into how many jobs?
-nDecodeJobs=80
+mer=80
 
 # exp tag
 tag="" # tag for managing experiments.
