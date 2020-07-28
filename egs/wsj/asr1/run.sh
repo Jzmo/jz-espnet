@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=0        # start from 0 if you need to start from data preparation
-stop_stage=100
+stage=2        # start from 0 if you need to start from data preparation
+stop_stage=2
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -54,6 +54,7 @@ tag="" # tag for managing experiments.
 set -e
 set -u
 set -o pipefail
+set -x
 
 train_set=train_si284
 train_dev=test_dev93

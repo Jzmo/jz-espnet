@@ -10,7 +10,7 @@
 backend=pytorch
 stage=-1       # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=0         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 decode_ngpu=0
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train.yaml # multi-encoders  conf/train_mulenc2.yaml
+train_config=conf/train_conformer.yaml # multi-encoders  conf/train_mulenc2.yaml
 preprocess_config=conf/preprocess.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml # multi-encoders conf/decode_mulenc2.yaml

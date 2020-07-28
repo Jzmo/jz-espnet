@@ -11,8 +11,8 @@ process_xml="python"
 
 # general configuration
 backend=pytorch
-stage=4
-stop_stage=4
+stage=5
+stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -23,9 +23,9 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train_pytorch_rnn.yaml
+train_config=conf/train_pytorch_transformer.v1.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/decode_ctcweight1.0.yaml
+decode_config=conf/decode_transformer.yaml
 
 # rnnlm related
 lmtag=              # tag for managing LMs
@@ -35,13 +35,13 @@ nbpe=500
 bpemode=unigram
 
 # decoding parameter
-recog_model=model.loss.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-
+recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
+n_average=10
 # data
 mgb2_root=/export/corpora5/MGB-2
 db_dir=data/DB
 
-
+#FILTER OUT SEGMENTS BASED ON MER (Match Error Rate)
 mer=80
 
 # exp tag
@@ -200,3 +200,45 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 		--valid-json ${feat_dt_dir}/data.json
 fi
 
+if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
+    echo "stage 5: Decoding"
+    nj=32
+    if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]]; then
+	recog_model=model.last${n_average}.avg.best
+	average_checkpoints.py --backend ${backend} \
+			       --snapshots ${expdir}/results/snapshot.ep.* \
+			       --out ${expdir}/results/${recog_model} \
+			       --num ${n_average}
+    fi
+    pids=() # initialize pids
+    for rtask in ${recog_set}; do
+	(
+	    decode_dir=decode_${rtask}_$(basename ${decode_config%.*})
+	    feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
+
+	    # split data
+	    splitjson.py --parts ${nj} ${feat_recog_dir}/data.json
+
+	    #### use CPU for decoding
+	    ngpu=0
+	    ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode.JOB.log \
+			  asr_recog.py \
+			  --config ${decode_config} \
+			  --ngpu ${ngpu} \
+			  --backend ${backend} \
+			  --debugmode ${debugmode} \
+			  --verbose ${verbose} \
+			  --recog-json ${feat_recog_dir}/split${nj}utt/data.JOB.json \
+			  --result-label ${expdir}/${decode_dir}/data.JOB.json \
+			  --model ${expdir}/results/${recog_model}  \
+			  --rnnlm ${lmexpdir}/rnnlm.model.best
+
+	    score_sclite.sh --bpe ${nbpe} --bpemodel ${bpemodel}.model --wer true ${expdir}/${decode_dir} ${dict}
+
+	) &
+	pids+=($!) # store background pids
+    done
+    i=0; for pid in "${pids[@]}"; do wait ${pid} || ((++i)); done
+    [ ${i} -gt 0 ] && echo "$0: ${i} background jobs are failed." && false
+    echo "Finished"
+fi
