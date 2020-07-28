@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=-1       # start from -1 if you need to start from data download
+stage=3       # start from -1 if you need to start from data download
 stop_stage=100
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,8 +20,8 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train.yaml
-decode_config=conf/decode.yaml
+train_config=conf/train_conformer.yaml
+decode_config=conf/decode_comformer.yaml
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
