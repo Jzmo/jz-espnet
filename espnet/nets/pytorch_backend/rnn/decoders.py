@@ -294,10 +294,6 @@ class Decoder(torch.nn.Module, ScorerInterface):
                 idx_hat = np.argmax(y_hat[y_true != self.ignore_id], axis=1)
                 idx_true = y_true[y_true != self.ignore_id]
                 seq_hat = [self.char_list[int(idx)] for idx in idx_hat]
-                print("print here:")
-                print("char_list:", self.char_list)
-                print("index:", idx, len(self.char_list))
-                print("index_true:", sorted(idx_true))
                 seq_true = [self.char_list[int(idx)] for idx in idx_true]
                 seq_hat = "".join(seq_hat)
                 seq_true = "".join(seq_true)
