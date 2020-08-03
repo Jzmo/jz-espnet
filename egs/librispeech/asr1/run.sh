@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=-1       # start from -1 if you need to start from data download
-stop_stage=100
+stage=0       # start from -1 if you need to start from data download
+stop_stage=3
 ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 nj=32
 debugmode=1
@@ -46,7 +46,7 @@ use_lm_valbest_average=false # if true, the validation `lm_n_average`-best langu
 # Set this to somewhere where you want to put your data, or where
 # someone else has already put it.  You'll want to change this
 # if you're not on the CLSP grid.
-datadir=/export/a15/vpanayotov/data
+datadir=/export/corpora5
 
 # base url for downloads.
 data_url=www.openslr.org/resources/12

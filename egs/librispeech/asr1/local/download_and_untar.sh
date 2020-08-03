@@ -3,6 +3,8 @@
 # Copyright   2014  Johns Hopkins University (author: Daniel Povey)
 # Apache 2.0
 
+set -xtrace
+
 remove_archive=false
 
 if [ "$1" == --remove-archive ]; then

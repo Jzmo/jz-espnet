@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=2        # start from 0 if you need to start from data preparation
-stop_stage=2
+stage=4        # start from 0 if you need to start from data preparation
+stop_stage=100
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -26,7 +26,7 @@ min_io_delta=4  # samples with `len(input) - len(output) * min_io_ratio < min_io
 
 # config files
 preprocess_config=conf/no_preprocess.yaml  # use conf/specaug.yaml for data augmentation
-train_config=conf/train.yaml
+train_config=conf/train_conformer.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -54,7 +54,6 @@ tag="" # tag for managing experiments.
 set -e
 set -u
 set -o pipefail
-set -x
 
 train_set=train_si284
 train_dev=test_dev93
@@ -147,7 +146,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --preprocess-conf ${preprocess_config} \
         --data-json ${feat_tr_dir}/data.json \
         --mode-subsample "asr" \
-        --arch-subsample "rnn" \
+        --arch-subsample "transformer" \
         ${min_io_delta:+--min-io-delta $min_io_delta} \
         --output-json-path ${feat_tr_dir}/data.json
 fi

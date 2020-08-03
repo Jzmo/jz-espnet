@@ -38,7 +38,6 @@ class DynamicConvolution(nn.Module):
     ):
         """Construct Dynamic Convolution layer."""
         super(DynamicConvolution, self).__init__()
-
         assert n_feat % wshare == 0
         self.wshare = wshare
         self.use_kernel_mask = use_kernel_mask
