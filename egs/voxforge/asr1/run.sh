@@ -20,8 +20,8 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_conformer.yaml
-decode_config=conf/decode_transformer.yaml
+train_config=conf/tuning/train_pytorch_xformer_warmup6000.yaml
+decode_config=conf/decode.yaml
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
@@ -165,8 +165,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     nj=16
 
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
-       [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]]; then
-
+       [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
         recog_model=model.last${n_average}.avg.best
         average_checkpoints.py --backend ${backend} \
 			       --snapshots ${expdir}/results/snapshot.ep.* \

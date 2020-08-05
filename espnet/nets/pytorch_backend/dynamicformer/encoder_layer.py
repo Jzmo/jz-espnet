@@ -49,7 +49,6 @@ class EncoderLayer(nn.Module):
         self_attn,
         feed_forward,
         feed_forward_macaron,
-        conv_module,
         light_conv,
         dropout_rate,
         ff_scale=1.0,
@@ -61,7 +60,6 @@ class EncoderLayer(nn.Module):
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
-        self.conv_module = conv_module
         self.light_conv = light_conv
         self.ff_scale = ff_scale
         self.norm_ff = LayerNorm(size)  # for the FNN module
@@ -69,7 +67,7 @@ class EncoderLayer(nn.Module):
         if feed_forward_macaron is not None:
             self.norm_ff_macaron = LayerNorm(size)
             self.ff_scale = 0.5
-        if self.conv_module is not None:
+        if self.light_conv is not None:
             self.norm_conv = LayerNorm(size)  # for the CNN module
             self.norm_final = LayerNorm(size)  # for the final output of the block
         self.dropout = nn.Dropout(dropout_rate)
@@ -129,12 +127,12 @@ class EncoderLayer(nn.Module):
         if not self.normalize_before:
             x = self.norm_mha(x)
 
-        # convolution module
-        if self.conv_module is not None:
+        # light convolution module
+        if self.light_conv is not None:
             residual = x
             if self.normalize_before:
                 x = self.norm_conv(x)
-            x = residual + self.dropout(self.conv_module(x))
+            x = residual + self.dropout(self.light_conv(x, x, x, mask))
             if not self.normalize_before:
                 x = self.norm_conv(x)
 
@@ -146,14 +144,7 @@ class EncoderLayer(nn.Module):
         if not self.normalize_before:
             x = self.norm_ff(x)
 
-        # light convolution module
         if self.light_conv is not None:
-            residual = x
-            if self.normalize_before:
-                x = self.norm_conv(x)
-            x = residual + self.dropout(self.light_conv(x, x, x, mask))
-
-        if self.conv_module is not None or self.light_conv is not None:
             x = self.norm_final(x)
 
         if cache is not None:

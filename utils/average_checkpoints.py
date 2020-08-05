@@ -57,7 +57,7 @@ def main():
         # average
         for k in avg.keys():
             if avg[k] is not None:
-                avg[k] /= args.num
+                avg[k] = torch.true_divide(avg[k], float(args.num))
 
         torch.save(avg, args.out)
 

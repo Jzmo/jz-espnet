@@ -49,8 +49,8 @@ class EncoderLayer(nn.Module):
         self_attn,
         feed_forward,
         feed_forward_macaron,
-        conv_module,
         light_conv,
+        dual_project_type,
         dropout_rate,
         ff_scale=1.0,
         normalize_before=True,
@@ -61,15 +61,15 @@ class EncoderLayer(nn.Module):
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
-        self.conv_module = conv_module
         self.light_conv = light_conv
+        self.dual_project_type = dual_project_type
         self.ff_scale = ff_scale
         self.norm_ff = LayerNorm(size)  # for the FNN module
         self.norm_mha = LayerNorm(size)  # for the MHA module
         if feed_forward_macaron is not None:
             self.norm_ff_macaron = LayerNorm(size)
             self.ff_scale = 0.5
-        if self.conv_module is not None:
+        if self.light_conv is not None:
             self.norm_conv = LayerNorm(size)  # for the CNN module
             self.norm_final = LayerNorm(size)  # for the final output of the block
         self.dropout = nn.Dropout(dropout_rate)
@@ -123,20 +123,24 @@ class EncoderLayer(nn.Module):
 
         if self.concat_after:
             x_concat = torch.cat((x, x_att), dim=-1)
-            x = residual + self.concat_linear(x_concat)
+            x_att = residual + self.concat_linear(x_concat)
         else:
-            x = residual + self.dropout(x_att)
+            x_att = residual + self.dropout(x_att)
         if not self.normalize_before:
-            x = self.norm_mha(x)
+            x_att = self.norm_mha(x_att)
 
-        # convolution module
-        if self.conv_module is not None:
-            residual = x
+        # light convolution module
+
+        if self.light_conv is not None:
+            residual = dual_inp
             if self.normalize_before:
-                x = self.norm_conv(x)
-            x = residual + self.dropout(self.conv_module(x))
+                x_conv = self.norm_conv(dual_inp)
+            x_conv = residual + self.dropout(self.light_conv(x_q, x, x, mask))
             if not self.normalize_before:
-                x = self.norm_conv(x)
+                x_conv = self.norm_conv(x)
+
+        x = torch.cat((x_att, x_conv), dim=-1)
+        x = self.dual_proj(x)
 
         # feed forward module
         residual = x
@@ -145,13 +149,6 @@ class EncoderLayer(nn.Module):
         x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
         if not self.normalize_before:
             x = self.norm_ff(x)
-
-        # light convolution module
-        if self.light_conv is not None:
-            residual = x
-            if self.normalize_before:
-                x = self.norm_conv(x)
-            x = residual + self.dropout(self.light_conv(x, x, x, mask))
 
         if self.conv_module is not None or self.light_conv is not None:
             x = self.norm_final(x)
