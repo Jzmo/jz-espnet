@@ -80,6 +80,12 @@ class E2E(E2EConformer):
             type=str,
             help="kernel size of decoder light convolultion",
         )
+        group.add_argument(
+            "--use-se-layer",
+            default=False,
+            type=bool,
+            help="whether to add SE layer after convolultion layer",
+        )
         return parser
 
     def __init__(self, idim, odim, args, ignore_id=-1):

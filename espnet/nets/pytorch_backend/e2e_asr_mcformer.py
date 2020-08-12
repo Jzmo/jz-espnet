@@ -12,7 +12,7 @@ Refer to: https://arxiv.org/abs/2005.08100
 
 from distutils.util import strtobool
 
-from espnet.nets.pytorch_backend.lightformer.encoder import Encoder
+from espnet.nets.pytorch_backend.mcformer.encoder import Encoder
 from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
 
 
@@ -29,13 +29,13 @@ class E2E(E2ETransformer):
     def add_arguments(parser):
         """Add arguments."""
         E2ETransformer.add_arguments(parser)
-        E2E.add_conformer_arguments(parser)
+        E2E.add_mcformer_arguments(parser)
         return parser
 
     @staticmethod
-    def add_conformer_arguments(parser):
-        """Add arguments for conformer model."""
-        group = parser.add_argument_group("conformer model specific setting")
+    def add_mcformer_arguments(parser):
+        """Add arguments for former model."""
+        group = parser.add_argument_group("mcformer model specific setting")
         group.add_argument(
             "--transformer-encoder-pos-enc-layer-type",
             type=str,
@@ -49,18 +49,24 @@ class E2E(E2ETransformer):
             type=strtobool,
             help="Whether to use macaron style for positionwise layer",
         )
-        # CNN module
         group.add_argument(
-            "--use-cnn-module",
-            default=False,
-            type=strtobool,
-            help="Use convolution module or not",
+            "--mc-selfattention-layer-type",
+            type=str,
+            default=None,
+            choices=["mcattn", "rel_mcattn"],
+            help="mcformer encoder multi conv attention layer type",
         )
         group.add_argument(
-            "--cnn-module-kernel",
-            default=31,
+            "--mc-n-kernel",
             type=int,
-            help="Kernel size of convolution module.",
+            default=1,
+            help="mcformer encoder number of convlution kernel",
+        )
+        group.add_argument(
+            "--mc-kernel-size",
+            default="31",
+            type=str,
+            help="mcformer encoder convlution kernel",
         )
         return parser
 
@@ -85,9 +91,10 @@ class E2E(E2ETransformer):
             positional_dropout_rate=args.dropout_rate,
             attention_dropout_rate=args.transformer_attn_dropout_rate,
             pos_enc_layer_type=args.transformer_encoder_pos_enc_layer_type,
-            selfattention_layer_type=args.transformer_encoder_selfattn_layer_type,
             macaron_style=args.macaron_style,
-            use_cnn_module=args.use_cnn_module,
-            cnn_module_kernel=args.cnn_module_kernel,
+            mc_selfattention_layer_type=args.mc_selfattention_layer_type,
+            mc_n_kernel=args.mc_n_kernel,
+            mc_kernel_size_str=args.mc_kernel_size,
+            padding_idx=-1,
         )
         self.reset_parameters(args)

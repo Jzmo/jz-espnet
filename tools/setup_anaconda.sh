@@ -23,6 +23,7 @@ elif [ $# -eq 1 ]; then
     PYTHON_VERSION=""
 fi
 
+PYTHON_VERSION=3.7
 
 if [ ! -e "${output_dir}/etc/profile.d/conda.sh" ]; then
     if [ ! -e miniconda.sh ]; then

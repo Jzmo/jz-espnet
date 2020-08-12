@@ -10,6 +10,12 @@ import logging
 import torch
 
 from espnet.nets.pytorch_backend.pformer.encoder_layer import EncoderLayer
+from espnet.nets.pytorch_backend.pformer.combine_methods import (
+    ConcatLinear,
+    ConcatAvePooling,
+    ConcatMaxPooling,
+    Highway,
+)
 from espnet.nets.pytorch_backend.conformer.subsampling import Conv2dSubsampling
 from espnet.nets.pytorch_backend.transducer.vgg import VGG2L
 from espnet.nets.pytorch_backend.transformer.attention import (
@@ -90,6 +96,7 @@ class Encoder(torch.nn.Module):
         lightconv_dropout_rate=0.1,
         lightconv_kernel_length=31,
         lightconv_usebias=False,
+        dual_type="linear",
     ):
         """Construct an Encoder object."""
         super(Encoder, self).__init__()
@@ -194,11 +201,17 @@ class Encoder(torch.nn.Module):
                     "unknown encoder_lightconv_layer: " + lightconv_layer_type
                 )
 
-        if dual_project_type == "concat_linear":
-            dual_proj = torch.nn.Linear(attention_dim*2, attention_dim)
-        elif dual_project_type == "concat_pooling":
-            dual_proj = torch.nn.AvgPool1d(attention_dim*2, attention_dim)
-        elif dual_project_type == "highway":
+        if dual_type == "linear":
+            logging.info("encoder dual encoder block combine type = linear")
+            dual_proj = ConcatLinear(attention_dim, torch.nn.functional.relu)
+        elif dual_type == "avepool":
+            logging.info("encoder dual encoder block combine type = avepool1d")
+            dual_proj = ConcatAvePooling(attention_dim, torch.nn.functional.relu)
+        elif dual_type == "maxpool":
+            logging.info("encoder dual encoder block combine type = maxpool1d")
+            dual_proj = ConcatMaxPooling(attention_dim, torch.nn.functional.relu)
+        elif dual_type == "highway":
+            logging.info("encoder dual encoder block combine type = highway")
             dual_proj = Highway(attention_dim, f=torch.nn.functional.relu)
 
         self.encoders = repeat(
@@ -215,10 +228,8 @@ class Encoder(torch.nn.Module):
                     lightconv_kernel_length,
                     lnum,
                     use_bias=lightconv_usebias,
-                )
-                dual_proj(),
-                if lightconv_layer is not None
-                else None,
+                ),
+                dual_proj,
                 dropout_rate,
                 normalize_before,
                 concat_after,

@@ -41,7 +41,14 @@ class E2E(E2EConformer):
             type=str,
             default=None,
             choices=["lightconv", "lightconv2d", "dynamicconv", "dynamicconv2d"],
-            help="pformer encoder light convolution layer type",
+            help="xformer encoder light convolution layer type",
+        )
+        group.add_argument(
+            "--lightconv-decoder-layer-type",
+            type=str,
+            default=None,
+            choices=["lightconv", "lightconv2d", "dynamicconv", "dynamicconv2d"],
+            help="xformer decoder light convolution layer type",
         )
         group.add_argument(
             "--lightconv-wshare",
@@ -72,6 +79,18 @@ class E2E(E2EConformer):
             default="",
             type=str,
             help="kernel size of decoder light convolultion",
+        )
+        group.add_argument(
+            "--use-se-layer",
+            default=False,
+            type=bool,
+            help="whether to add SE layer after convolultion layer",
+        )
+        group.add_argument(
+            "--dual-type",
+            default="linear",
+            type=str,
+            help="combine method of MH-SA and LW-Conv",
         )
         return parser
 

@@ -9,17 +9,14 @@
 import logging
 import torch
 
-from espnet.nets.pytorch_backend.dynamicformer.encoder_layer import EncoderLayer
+from espnet.nets.pytorch_backend.conformer.convolution import ConvolutionModule
+from espnet.nets.pytorch_backend.conformer.encoder_layer import EncoderLayer
 from espnet.nets.pytorch_backend.conformer.subsampling import Conv2dSubsampling
 from espnet.nets.pytorch_backend.transducer.vgg import VGG2L
 from espnet.nets.pytorch_backend.transformer.attention import (
     MultiHeadedAttention,  # noqa: H301
     RelPositionMultiHeadedAttention,  # noqa: H301
 )
-from espnet.nets.pytorch_backend.transformer.dynamic_conv import DynamicConvolution
-from espnet.nets.pytorch_backend.transformer.dynamic_conv2d import DynamicConvolution2D
-from espnet.nets.pytorch_backend.transformer.lightconv import LightweightConvolution
-from espnet.nets.pytorch_backend.transformer.lightconv2d import LightweightConvolution2D
 from espnet.nets.pytorch_backend.transformer.embedding import (
     PositionalEncoding,  # noqa: H301
     ScaledPositionalEncoding,  # noqa: H301
@@ -35,7 +32,7 @@ from espnet.nets.pytorch_backend.transformer.repeat import repeat
 
 
 class Encoder(torch.nn.Module):
-    """Dynamicformer encoder module.
+    """Conformer encoder module.
 
     :param int idim: input dim
     :param int attention_dim: dimention of attention
@@ -58,10 +55,6 @@ class Encoder(torch.nn.Module):
     :param bool macaron_style: whether to use macaron style for positionwise layer
     :param bool use_cnn_module: whether to use convolution module
     :param int cnn_module_kernel: kernerl size of convolution module
-    :param int lightconv_wshare=4: 
-    :param int lightconv_dim: 
-    :param float lightconv_dropout_rate: 
-    :param str lightconv_kernel_length:
     :param int padding_idx: padding_idx for input_layer=embed
     """
 
@@ -83,16 +76,9 @@ class Encoder(torch.nn.Module):
         macaron_style=False,
         pos_enc_layer_type="abs_pos",
         selfattention_layer_type="selfattn",
+        use_cnn_module=False,
+        cnn_module_kernel=31,
         padding_idx=-1,
-        lightconv_layer_type="dynamicconv",
-        lightconv_wshare=4,
-        lightconv_dim=256,
-        lightconv_dropout_rate=0.1,
-        lightconv_kernel_length=31,
-        lightconv_usebias=False,
-        use_se_layer=False,
-        se_activation=torch.nn.ReLU(),
-        se_reduction_ratio=8,
     ):
         """Construct an Encoder object."""
         super(Encoder, self).__init__()
@@ -179,30 +165,8 @@ class Encoder(torch.nn.Module):
         else:
             raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
 
-        if lightconv_layer_type == "lightconv":
-            logging.info("encoder lightconv layer type = lightconv")
-            lightconv_layer = LightweightConvolution
-        elif lightconv_layer_type == "lightconv2d":
-            logging.info("encoder lightconv layer type = lightconv2d")
-            lightconv_layer = LightweightConvolution2D
-        elif lightconv_layer_type == "dynamicconv":
-            logging.info("encoder lightconv layer type = dynamicconv")
-            lightconv_layer = DynamicConvolution
-        elif lightconv_layer_type == "dynamicconv2d":
-            logging.info("encoder lightconv layer type = dynamicconv2d")
-            lightconv_layer = DynamicConvolution
-        else:
-            if lightconv_layer is not None:
-                raise ValueError(
-                    "unknown encoder_lightconv_layer: " + lightconv_layer_type
-                )
-
-        if use_se_layer:
-            se_layer = SELayer(
-                attention_dim,
-                reduction_ratio=se_reduction_ratio,
-                activation=se_activation,
-            )
+        convolution_layer = ConvolutionModule
+        convolution_layer_args = (attention_dim, cnn_module_kernel)
 
         self.encoders = repeat(
             num_blocks,
@@ -211,17 +175,7 @@ class Encoder(torch.nn.Module):
                 encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 positionwise_layer(*positionwise_layer_args),
                 positionwise_layer(*positionwise_layer_args) if macaron_style else None,
-                lightconv_layer(
-                    lightconv_wshare,
-                    lightconv_dim,
-                    lightconv_dropout_rate,
-                    lightconv_kernel_length,
-                    lnum,
-                    use_bias=lightconv_usebias,
-                )
-                if lightconv_layer is not None
-                else None,
-                se_layer if use_se_layer else None,
+                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,

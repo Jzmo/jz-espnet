@@ -30,10 +30,6 @@ class EncoderLayer(nn.Module):
     :param espnet.nets.pytorch_backend.conformer.convolution.
         ConvolutionModule feed_foreard:
         feed forward module
-    :param espent.nets.pytorch_backend.transformer.dynamic_conv.
-    :param espent.nets.pytorch_backend.transformer.dynamic_conv2d.
-    :param espent.nets.pytorch_backend.transformer.light_conv.
-    :param espent.nets.pytorch_backend.transformer.light_conv2d.
     :param float dropout_rate: dropout rate
     :param bool normalize_before: whether to use layer_norm before the first block
     :param bool concat_after: whether to concat attention layer's input and output
@@ -49,8 +45,7 @@ class EncoderLayer(nn.Module):
         self_attn,
         feed_forward,
         feed_forward_macaron,
-        light_conv,
-        dual_proj,
+        conv_module,
         dropout_rate,
         ff_scale=1.0,
         normalize_before=True,
@@ -61,15 +56,14 @@ class EncoderLayer(nn.Module):
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
-        self.light_conv = light_conv
-        self.dual_proj = dual_proj
+        self.conv_module = conv_module
         self.ff_scale = ff_scale
         self.norm_ff = LayerNorm(size)  # for the FNN module
         self.norm_mha = LayerNorm(size)  # for the MHA module
         if feed_forward_macaron is not None:
             self.norm_ff_macaron = LayerNorm(size)
             self.ff_scale = 0.5
-        if self.light_conv is not None:
+        if self.conv_module is not None:
             self.norm_conv = LayerNorm(size)  # for the CNN module
             self.norm_final = LayerNorm(size)  # for the final output of the block
         self.dropout = nn.Dropout(dropout_rate)
@@ -103,11 +97,11 @@ class EncoderLayer(nn.Module):
             if not self.normalize_before:
                 x = self.norm_ff_macaron(x)
 
+        # multi-headed self-attention module
         residual = x
         if self.normalize_before:
             x = self.norm_mha(x)
 
-        # multi-headed self-attention module
         if cache is None:
             x_q = x
         else:
@@ -123,22 +117,20 @@ class EncoderLayer(nn.Module):
 
         if self.concat_after:
             x_concat = torch.cat((x, x_att), dim=-1)
-            x_att = residual + self.concat_linear(x_concat)
+            x = residual + self.concat_linear(x_concat)
         else:
-            x_att = residual + self.dropout(x_att)
+            x = residual + self.dropout(x_att)
         if not self.normalize_before:
-            x_att = self.norm_mha(x_att)
+            x = self.norm_mha(x)
 
-        # light convolution module
-        if self.light_conv is not None:
+        # convolution module
+        if self.conv_module is not None:
             residual = x
             if self.normalize_before:
-                x_conv = self.norm_conv(dual_inp)
-            x_conv = residual + self.dropout(self.light_conv(x, x, x, mask))
+                x = self.norm_conv(x)
+            x = residual + self.dropout(self.conv_module(x))
             if not self.normalize_before:
-                x_conv = self.norm_conv(x)
-
-        x = self.dual_proj(x_att, x_conv)
+                x = self.norm_conv(x)
 
         # feed forward module
         residual = x
@@ -148,7 +140,7 @@ class EncoderLayer(nn.Module):
         if not self.normalize_before:
             x = self.norm_ff(x)
 
-        if self.light_conv is not None:
+        if self.conv_module is not None:
             x = self.norm_final(x)
 
         if cache is not None:

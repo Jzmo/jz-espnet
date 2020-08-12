@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=0        # start from 0 if you need to start from data preparation
-stop_stage=100
+stage=5        # start from 0 if you need to start from data preparation
+stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train.yaml
+train_config=conf/tuning/train_pytorch_dynamicformer.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -37,7 +37,7 @@ recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.bes
 n_average=10
 
 # data
-data=/export/a05/xna/data
+data=/export/fs04/a05/xna/data/aishell
 data_url=www.openslr.org/resources/33
 
 # exp tag
@@ -110,14 +110,15 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     split_dir=$(echo $PWD | awk -F "/" '{print $NF "/" $(NF-1)}')
     if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d ${feat_tr_dir}/storage ]; then
     utils/create_split_dir.pl \
-        /export/a{11,12,13,14}/${USER}/espnet-data/egs/${split_dir}/dump/${train_set}/delta${do_delta}/storage \
+        /export/b{11,12,13,14}/${USER}/espnet-data/egs/${split_dir}/dump/${train_set}/delta${do_delta}/storage \
         ${feat_tr_dir}/storage
     fi
     if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d ${feat_dt_dir}/storage ]; then
     utils/create_split_dir.pl \
-        /export/a{11,12,13,14}/${USER}/espnet-data/egs/${split_dir}/dump/${train_dev}/delta${do_delta}/storage \
+        /export/b{11,12,13,14}/${USER}/espnet-data/egs/${split_dir}/dump/${train_dev}/delta${do_delta}/storage \
         ${feat_dt_dir}/storage
     fi
+
     dump.sh --cmd "$train_cmd" --nj 32 --do_delta ${do_delta} \
         data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
     for rtask in ${recog_set}; do
@@ -227,7 +228,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
     nj=32
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
-       [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]]; then
+       [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
         recog_model=model.last${n_average}.avg.best
         average_checkpoints.py --backend ${backend} \
         		       --snapshots ${expdir}/results/snapshot.ep.* \
@@ -257,6 +258,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
             --model ${expdir}/results/${recog_model}  \
             --rnnlm ${lmexpdir}/rnnlm.model.best \
             --ngram-model ${ngramexpdir}/${n_gram}gram.bin \
+	    --ngram-scorer "full" \
             --api v2
 
         score_sclite.sh ${expdir}/${decode_dir} ${dict}
