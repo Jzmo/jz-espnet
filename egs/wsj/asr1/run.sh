@@ -146,7 +146,7 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
         --preprocess-conf ${preprocess_config} \
         --data-json ${feat_tr_dir}/data.json \
         --mode-subsample "asr" \
-        --arch-subsample "transformer" \
+        --arch-subsample "rnn" \
         ${min_io_delta:+--min-io-delta $min_io_delta} \
         --output-json-path ${feat_tr_dir}/data.json
 fi
