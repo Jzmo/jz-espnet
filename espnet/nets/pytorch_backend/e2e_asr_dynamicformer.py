@@ -81,6 +81,12 @@ class E2E(E2EConformer):
             help="kernel size of decoder light convolultion",
         )
         group.add_argument(
+            "--lightconv-layer-number",
+            default="all",
+            type=str,
+            help="layers that light convolultion, default to be applied to all layers",
+        )
+        group.add_argument(
             "--use-se-layer",
             default=False,
             type=bool,
@@ -116,5 +122,7 @@ class E2E(E2EConformer):
             lightconv_dim=args.lightconv_dim,
             lightconv_dropout_rate=args.lightconv_dropout_rate,
             lightconv_kernel_length=args.lightconv_encoder_kernel_length,
+            lightconv_layer_number_str=args.lightconv_layer_number,
+            use_se_layer=args.use_se_layer,
         )
         self.reset_parameters(args)

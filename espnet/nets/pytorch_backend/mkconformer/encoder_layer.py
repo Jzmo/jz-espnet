@@ -11,6 +11,7 @@ import torch
 from torch import nn
 
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm
+from espnet.nets.pytorch_backend.contextnet.encoder_layer import SELayer
 
 
 class EncoderLayer(nn.Module):
@@ -46,6 +47,7 @@ class EncoderLayer(nn.Module):
         feed_forward,
         feed_forward_macaron,
         conv_module,
+        se_layer,
         dropout_rate,
         ff_scale=1.0,
         normalize_before=True,
@@ -57,6 +59,7 @@ class EncoderLayer(nn.Module):
         self.feed_forward = feed_forward
         self.feed_forward_macaron = feed_forward_macaron
         self.conv_module = conv_module
+        self.se_layer = se_layer
         self.ff_scale = ff_scale
         self.norm_ff = LayerNorm(size)  # for the FNN module
         self.norm_mha = LayerNorm(size)  # for the MHA module
@@ -128,9 +131,13 @@ class EncoderLayer(nn.Module):
             residual = x
             if self.normalize_before:
                 x = self.norm_conv(x)
-            x = residual + self.dropout(self.conv_module(x))
+            x = self.dropout(self.conv_module(x))
+            if self.se_layer is not None:
+                x = x.transpose(1, 2)
+                x = self.se_layer(x).transpose(1, 2)
+            x = residual + x
             if not self.normalize_before:
-                x = self.norm_conv(x)
+                x = self.norm_conv(x)  # (B, T, C)
 
         # feed forward module
         residual = x

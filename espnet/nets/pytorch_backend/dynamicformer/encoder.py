@@ -90,6 +90,7 @@ class Encoder(torch.nn.Module):
         lightconv_dropout_rate=0.1,
         lightconv_kernel_length=31,
         lightconv_usebias=False,
+        lightconv_layer_number_str="all",
         use_se_layer=False,
         se_activation=torch.nn.ReLU(),
         se_reduction_ratio=8,
@@ -197,6 +198,18 @@ class Encoder(torch.nn.Module):
                     "unknown encoder_lightconv_layer: " + lightconv_layer_type
                 )
 
+        if lightconv_layer_number_str == "all":
+            lightconv_layer_number = [True for _ in range(num_blocks)]
+        elif "_" in lightconv_layer_number_str:
+            layers = lightconv_layer_number_str.split("_")
+            lightconv_layer_number = [
+                True if str(nb) in layers else False for nb in range(1, num_blocks + 1)
+            ]
+        else:
+            raise ValueError(
+                "unknown encoder_lightconv_layer_number: " + lightconv_layer_number_str
+            )
+
         if use_se_layer:
             se_layer = SELayer(
                 attention_dim,
@@ -219,7 +232,7 @@ class Encoder(torch.nn.Module):
                     lnum,
                     use_bias=lightconv_usebias,
                 )
-                if lightconv_layer is not None
+                if lightconv_layer is not None and lightconv_layer_number[lnum]
                 else None,
                 se_layer if use_se_layer else None,
                 dropout_rate,

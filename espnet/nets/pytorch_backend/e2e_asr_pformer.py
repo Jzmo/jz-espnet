@@ -87,6 +87,12 @@ class E2E(E2EConformer):
             help="whether to add SE layer after convolultion layer",
         )
         group.add_argument(
+            "--lightconv-layer-number",
+            default="all",
+            type=str,
+            help="layers that light convolultion, default to be applied to all layers",
+        )
+        group.add_argument(
             "--dual-type",
             default="linear",
             type=str,
@@ -122,5 +128,7 @@ class E2E(E2EConformer):
             lightconv_dim=args.lightconv_dim,
             lightconv_dropout_rate=args.lightconv_dropout_rate,
             lightconv_kernel_length=args.lightconv_encoder_kernel_length,
+            lightconv_layer_number_str=args.lightconv_layer_number,
+            dual_type=args.dual_type,
         )
         self.reset_parameters(args)

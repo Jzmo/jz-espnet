@@ -11,6 +11,9 @@ import torch
 
 from espnet.nets.pytorch_backend.pformer.encoder_layer import EncoderLayer
 from espnet.nets.pytorch_backend.pformer.combine_methods import (
+    Attn,
+    Attn_CNN,
+    ConcatChannel,
     ConcatLinear,
     ConcatAvePooling,
     ConcatMaxPooling,
@@ -96,6 +99,7 @@ class Encoder(torch.nn.Module):
         lightconv_dropout_rate=0.1,
         lightconv_kernel_length=31,
         lightconv_usebias=False,
+        lightconv_layer_number_str="all",
         dual_type="linear",
     ):
         """Construct an Encoder object."""
@@ -201,6 +205,18 @@ class Encoder(torch.nn.Module):
                     "unknown encoder_lightconv_layer: " + lightconv_layer_type
                 )
 
+        if lightconv_layer_number_str == "all":
+            lightconv_layer_number = [True for _ in range(num_blocks)]
+        elif "_" in lightconv_layer_number_str:
+            layers = lightconv_layer_number_str.split("_")
+            lightconv_layer_number = [
+                True if str(nb) in layers else False for nb in range(1, num_blocks + 1)
+            ]
+        else:
+            raise ValueError(
+                "unknown encoder_lightconv_layer_number: " + lightconv_layer_number_str
+            )
+
         if dual_type == "linear":
             logging.info("encoder dual encoder block combine type = linear")
             dual_proj = ConcatLinear(attention_dim, torch.nn.functional.relu)
@@ -213,7 +229,18 @@ class Encoder(torch.nn.Module):
         elif dual_type == "highway":
             logging.info("encoder dual encoder block combine type = highway")
             dual_proj = Highway(attention_dim, f=torch.nn.functional.relu)
-
+        elif dual_type == "attention":
+            logging.info("encoder dual encoder block combine type = highway")
+            dual_proj = Attn(attention_dim)
+        elif dual_type == "attention_cnn":
+            logging.info("encoder dual encoder block combine type = highway")
+            dual_proj = Attn_CNN(attention_dim)
+        elif dual_type == "catchannel":
+            logging.info("encoder dual encoder block combine type = catchannel")
+            dual_proj = ConcatChannel(attention_dim)
+        elif dual_type == "shufflechannel":
+            logging.info("encoder dual encoder block combine type = catchannel")
+            dual_proj = ConcatChannel(attention_dim, shuffle=True)
         self.encoders = repeat(
             num_blocks,
             lambda lnum: EncoderLayer(
@@ -228,7 +255,9 @@ class Encoder(torch.nn.Module):
                     lightconv_kernel_length,
                     lnum,
                     use_bias=lightconv_usebias,
-                ),
+                )
+                if lightconv_layer is not None and lightconv_layer_number[lnum]
+                else None,
                 dual_proj,
                 dropout_rate,
                 normalize_before,

@@ -9,6 +9,7 @@
 
 import torch
 from torch import nn
+from espnet.nets.pytorch_backend.transformer.repeat import repeat
 
 
 class ConvolutionModule(nn.Module):
@@ -19,7 +20,7 @@ class ConvolutionModule(nn.Module):
 
     """
 
-    def __init__(self, channels, kernel_size, bias=True):
+    def __init__(self, channels, kernel_size, k2=None, bias=True):
         """Construct an ConvolutionModule object."""
         super(ConvolutionModule, self).__init__()
         # kernerl_size should be a odd number for 'SAME' padding
@@ -28,7 +29,7 @@ class ConvolutionModule(nn.Module):
         self.pointwise_conv1 = nn.Conv1d(
             channels, 2 * channels, kernel_size=1, stride=1, padding=0, bias=bias,
         )
-        self.depthwise_conv = nn.Conv1d(
+        self.depthwise_conv1 = nn.Conv1d(
             channels,
             channels,
             kernel_size,
@@ -37,9 +38,23 @@ class ConvolutionModule(nn.Module):
             groups=channels,
             bias=bias,
         )
-        self.norm = nn.BatchNorm1d(channels)
+        k2 = (kernel_size + 1) // 4 - 1
+        self.depthwise_conv2 = nn.Conv1d(
+            channels,
+            channels,
+            k2,
+            stride=1,
+            padding=(k2 - 1) // 2,
+            groups=channels,
+            bias=bias,
+        )
+        self.norm1 = nn.BatchNorm1d(channels)
+        self.norm2 = nn.BatchNorm1d(channels)
         self.pointwise_conv2 = nn.Conv1d(
-            channels, channels, kernel_size=1, stride=1, padding=0, bias=bias,
+            channels, channels // 2, kernel_size=1, stride=1, padding=0, bias=bias,
+        )
+        self.pointwise_conv3 = nn.Conv1d(
+            channels, channels // 2, kernel_size=1, stride=1, padding=0, bias=bias,
         )
         self.activation = Swish()
 
@@ -50,6 +65,8 @@ class ConvolutionModule(nn.Module):
         :return torch.Tensor: convoluted `value` (batch, time, d_model)
         """
         # exchange the temporal dimension and the feature dimension
+        T = x.size(1)
+        C = x.size(2)
         x = x.transpose(1, 2)
 
         # GLU mechanism
@@ -57,12 +74,16 @@ class ConvolutionModule(nn.Module):
         x = nn.functional.glu(x, dim=1)  # (batch, channel, dim)
 
         # 1D Depthwise Conv
-        x = self.depthwise_conv(x)
-        x = self.activation(self.norm(x))
+        x1 = self.depthwise_conv1(x)
+        x2 = self.depthwise_conv2(x)
+        x1 = self.activation(self.norm1(x1))
+        x2 = self.activation(self.norm2(x2))
 
-        x = self.pointwise_conv2(x)
+        x1 = self.pointwise_conv2(x1)
+        x2 = self.pointwise_conv3(x2)
+        x = torch.cat([x1, x2], dim=1)  # (batch, channel, time)
 
-        return x.transpose(1, 2)
+        return x.transpose(1, 2)  # (batch, time, channel)
 
 
 class Swish(nn.Module):

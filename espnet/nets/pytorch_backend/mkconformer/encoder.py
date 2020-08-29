@@ -9,8 +9,9 @@
 import logging
 import torch
 
-from espnet.nets.pytorch_backend.conformer.convolution import ConvolutionModule
-from espnet.nets.pytorch_backend.conformer.encoder_layer import EncoderLayer
+from espnet.nets.pytorch_backend.mkconformer.convolution import ConvolutionModule
+from espnet.nets.pytorch_backend.mkconformer.encoder_layer import EncoderLayer
+from espnet.nets.pytorch_backend.contextnet.encoder_layer import SELayer
 from espnet.nets.pytorch_backend.conformer.subsampling import Conv2dSubsampling
 from espnet.nets.pytorch_backend.transducer.vgg import VGG2L
 from espnet.nets.pytorch_backend.transformer.attention import (
@@ -78,6 +79,9 @@ class Encoder(torch.nn.Module):
         selfattention_layer_type="selfattn",
         use_cnn_module=False,
         cnn_module_kernel=31,
+        use_se_layer=False,
+        se_activation=torch.nn.ReLU(),
+        se_reduction_ratio=8,
         padding_idx=-1,
     ):
         """Construct an Encoder object."""
@@ -168,6 +172,13 @@ class Encoder(torch.nn.Module):
         convolution_layer = ConvolutionModule
         convolution_layer_args = (attention_dim, cnn_module_kernel)
 
+        if use_se_layer:
+            se_layer = SELayer(
+                attention_dim,
+                reduction_ratio=se_reduction_ratio,
+                activation=se_activation,
+            )
+
         self.encoders = repeat(
             num_blocks,
             lambda lnum: EncoderLayer(
@@ -176,6 +187,7 @@ class Encoder(torch.nn.Module):
                 positionwise_layer(*positionwise_layer_args),
                 positionwise_layer(*positionwise_layer_args) if macaron_style else None,
                 convolution_layer(*convolution_layer_args) if use_cnn_module else None,
+                se_layer if use_se_layer else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,

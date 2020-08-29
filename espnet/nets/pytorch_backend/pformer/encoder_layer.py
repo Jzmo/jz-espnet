@@ -132,13 +132,12 @@ class EncoderLayer(nn.Module):
         # light convolution module
         if self.light_conv is not None:
             residual = x
-            if self.normalize_before:
-                x_conv = self.norm_conv(dual_inp)
-            x_conv = residual + self.dropout(self.light_conv(x, x, x, mask))
+            x_conv = residual + self.dropout(self.light_conv(x_q, x, x, mask))
             if not self.normalize_before:
-                x_conv = self.norm_conv(x)
-
-        x = self.dual_proj(x_att, x_conv)
+                x_conv = self.norm_conv(x_conv)
+            x = self.dual_proj(x_att, x_conv)
+        else:
+            x = x_att
 
         # feed forward module
         residual = x

@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_dynamicformer.yaml
+train_config=conf/tuning/train_pytorch_multiconformer.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 

@@ -14,6 +14,7 @@ from torch import nn
 
 from espnet.nets.pytorch_backend.transformer.repeat import repeat
 from espnet.nets.pytorch_backend.mcformer.dynamic_conv import DynamicConvolution
+from espnet.nets.pytorch_backend.contextnet.encoder_layer import SELayer
 
 
 class MultiConvedAttention(nn.Module):
@@ -45,11 +46,17 @@ class MultiConvedAttention(nn.Module):
                 1, n_feat, self.d_c, 0.1, self.kernel_size_str[knum], 0
             ),
         )
+        self.pointwise_conv_k = nn.Conv1d(
+            n_feat, n_feat, kernel_size=1, stride=1, padding=0, bias=True,
+        )
         self.conv_v = repeat(
             self.n_kernel,
             lambda knum: DynamicConvolution(
                 1, n_feat, self.d_c, 0.1, self.kernel_size_str[knum], 0
             ),
+        )
+        self.pointwise_conv_v = nn.Conv1d(
+            n_feat, n_feat, kernel_size=1, stride=1, padding=0, bias=True,
         )
         self.linear_q = nn.Linear(n_feat, n_feat)
         self.linear_k = nn.Linear(n_feat, n_feat)
@@ -70,13 +77,11 @@ class MultiConvedAttention(nn.Module):
         q = query
         k = [self.conv_k[n](key, None, None, None) for n in range(self.n_kernel)]
         v = [self.conv_v[n](value, None, None, None) for n in range(self.n_kernel)]
-        k = key + torch.stack(k).permute(1, 2, 0, 3).contiguous().view(
-            -1, T, self.n_feat
-        )
-        v = value + torch.stack(v).permute(1, 2, 0, 3).contiguous().view(
-            -1, T, self.n_feat
-        )
-        return q, k, v
+        k = key + torch.cat(k, 2)  # (B, T, C)
+        k = self.pointwise_conv_k(k.transpose(1, 2))  # (B, T, C) -> (B, C, T)
+        v = value + torch.cat(v, 2)  # (B, T, C)
+        v = self.pointwise_conv_v(v.transpose(1, 2))
+        return q, k.transpose(1, 2), v.transpose(1, 2)
 
     def forward_qkv(self, query, key, value):
         """Transform query, key and value.
@@ -139,8 +144,8 @@ class MultiConvedAttention(nn.Module):
         :return torch.Tensor: attention output (batch, time1, d_model)
         """
         q, k, v = self.forward_conv(query, key, value)
-        q, k, v = self.forward_qkv(q, k, v)
-        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_k)
+        # q, k, v = self.forward_qkv(q, k, v)
+        scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(self.d_c)
         return self.forward_attention(v, scores, mask)
 
 
