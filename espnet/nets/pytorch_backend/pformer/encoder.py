@@ -18,9 +18,12 @@ from espnet.nets.pytorch_backend.pformer.combine_methods import (
     ConcatAvePooling,
     ConcatMaxPooling,
     Highway,
+    KeepOne,
+    VaryChannel,
 )
-from espnet.nets.pytorch_backend.conformer.subsampling import Conv2dSubsampling
+from espnet.nets.pytorch_backend.transformer.subsampling import Conv2dSubsampling
 from espnet.nets.pytorch_backend.transducer.vgg import VGG2L
+from espnet.nets.pytorch_backend.nets_utils import get_activation
 from espnet.nets.pytorch_backend.transformer.attention import (
     MultiHeadedAttention,  # noqa: H301
     RelPositionMultiHeadedAttention,  # noqa: H301
@@ -92,6 +95,7 @@ class Encoder(torch.nn.Module):
         macaron_style=False,
         pos_enc_layer_type="abs_pos",
         selfattention_layer_type="selfattn",
+        activation_type="swish",
         padding_idx=-1,
         lightconv_layer_type="dynamicconv",
         lightconv_wshare=4,
@@ -101,10 +105,13 @@ class Encoder(torch.nn.Module):
         lightconv_usebias=False,
         lightconv_layer_number_str="all",
         dual_type="linear",
+        layer_type_str="",
+        attn_channel_str="",
     ):
         """Construct an Encoder object."""
         super(Encoder, self).__init__()
 
+        activation = get_activation(activation_type)
         if pos_enc_layer_type == "abs_pos":
             pos_enc_class = PositionalEncoding
         elif pos_enc_layer_type == "scaled_abs_pos":
@@ -126,6 +133,7 @@ class Encoder(torch.nn.Module):
             self.embed = Conv2dSubsampling(
                 idim,
                 attention_dim,
+                dropout_rate,
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif input_layer == "vgg2l":
@@ -148,7 +156,12 @@ class Encoder(torch.nn.Module):
         self.normalize_before = normalize_before
         if positionwise_layer_type == "linear":
             positionwise_layer = PositionwiseFeedForward
-            positionwise_layer_args = (attention_dim, linear_units, dropout_rate)
+            positionwise_layer_args = (
+                attention_dim,
+                linear_units,
+                dropout_rate,
+                activation,
+            )
         elif positionwise_layer_type == "conv1d":
             positionwise_layer = MultiLayeredConv1d
             positionwise_layer_args = (
@@ -239,8 +252,16 @@ class Encoder(torch.nn.Module):
             logging.info("encoder dual encoder block combine type = catchannel")
             dual_proj = ConcatChannel(attention_dim)
         elif dual_type == "shufflechannel":
-            logging.info("encoder dual encoder block combine type = catchannel")
+            logging.info("encoder dual encoder block combine type = shufflechannel")
             dual_proj = ConcatChannel(attention_dim, shuffle=True)
+        elif dual_type == "keepone":
+            logging.info("encoder dual encoder block combine type = keepone")
+            dual_proj = KeepOne
+            which_layer = layer_type_str.split("_")
+        elif dual_type == "varychannel":
+            logging.info("encoder dual encoder block combine type = keepone")
+            dual_proj = VaryChannel
+            which_layer = [int(n_channel) for n_channel in attn_channel_str.split("_")]
         self.encoders = repeat(
             num_blocks,
             lambda lnum: EncoderLayer(
@@ -258,7 +279,9 @@ class Encoder(torch.nn.Module):
                 )
                 if lightconv_layer is not None and lightconv_layer_number[lnum]
                 else None,
-                dual_proj,
+                dual_proj
+                if dual_type != "keepone" and dual_type != "varychannel"
+                else dual_proj(attention_dim, which_layer[lnum]),
                 dropout_rate,
                 normalize_before,
                 concat_after,

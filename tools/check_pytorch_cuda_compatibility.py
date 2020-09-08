@@ -23,13 +23,13 @@ def check(pytorch_version: str, cuda_version: str):
         maybe_supported = ["10.0"]
     # 1.4.0
     elif LooseVersion(pytorch_version) >= LooseVersion("1.4"):
-        supported = ["10.1", "9.2"]
+        supported = ["10.2", "10.1", "9.2"]
         # FIXME(kamo): 10.0 is not existing, but it seems to work in my environment
         maybe_supported = ["10.0"]
     # 1.3.0 or 1.3.1
     elif LooseVersion(pytorch_version) >= LooseVersion("1.3"):
         # FIXME(kamo):  1.3 is not documented, The following is my expectation
-        supported = ["10.0", "9.2"]
+        supported = ["10.2", "10.0", "9.2"]
     # 1.2.0
     elif LooseVersion(pytorch_version) >= LooseVersion("1.2"):
         supported = ["10.0", "9.2"]

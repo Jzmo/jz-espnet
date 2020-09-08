@@ -98,6 +98,18 @@ class E2E(E2EConformer):
             type=str,
             help="combine method of MH-SA and LW-Conv",
         )
+        group.add_argument(
+            "--layer-type-str",
+            default="",
+            type=str,
+            help="Layer type used in keepone Net",
+        )
+        group.add_argument(
+            "--attn-channel-str",
+            default="",
+            type=str,
+            help="Layer type used in keepone Net",
+        )
         return parser
 
     def __init__(self, idim, odim, args, ignore_id=-1):
@@ -130,5 +142,7 @@ class E2E(E2EConformer):
             lightconv_kernel_length=args.lightconv_encoder_kernel_length,
             lightconv_layer_number_str=args.lightconv_layer_number,
             dual_type=args.dual_type,
+            layer_type_str=args.layer_type_str,
+            attn_channel_str=args.attn_channel_str,
         )
         self.reset_parameters(args)

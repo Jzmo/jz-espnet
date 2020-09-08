@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=5        # start from 0 if you need to start from data preparation
+stage=4        # start from 0 if you need to start from data preparation
 stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_dynamicformer.yaml
+train_config=conf/tuning/train_pytorch_pformer_shuffle_channel_cnn9012.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -29,9 +29,16 @@ lm_resume=         # specify a snapshot file to resume LM training
 lmtag=             # tag for managing LMs
 
 # decoding parameter
-recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-n_average=10
+recog_model=model.acc.best  # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
+lang_model=rnnlm.model.best # set a language model to be used for decoding
 
+# model average realted (only for transformer)
+n_average=5                  # the number of ASR models to be averaged
+use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
+# if false, the last `n_average` ASR models will be averaged.
+lm_n_average=0               # the number of languge models to be averaged
+use_lm_valbest_average=false # if true, the validation `lm_n_average`-best language models will be averaged.
+                             # if false, the last `lm_n_average` language models will be averaged.
 # data
 data=/export/fs04/a05/xna/data/aishell
 data_url=www.openslr.org/resources/33
@@ -216,13 +223,42 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
     nj=32
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
-       [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
-        recog_model=model.last${n_average}.avg.best
-        average_checkpoints.py --backend ${backend} \
-        		       --snapshots ${expdir}/results/snapshot.ep.* \
-        		       --out ${expdir}/results/${recog_model} \
-        		       --num ${n_average}
-    fi
+	   [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
+	# Average ASR models
+	if ${use_valbest_average}; then
+	    recog_model=model.val${n_average}.avg.best
+	    opt="--log ${expdir}/results/log"
+	else
+	    recog_model=model.last${n_average}.avg.best
+	    opt="--log"
+	fi
+	average_checkpoints.py \
+	    ${opt} \
+	    --backend ${backend} \
+	    --snapshots ${expdir}/results/snapshot.ep.* \
+	    --out ${expdir}/results/${recog_model} \
+	    --num ${n_average}
+	
+	# Average LM models
+	if [ ${lm_n_average} -eq 0 ]; then
+	    lang_model=rnnlm.model.best
+	else
+	    if ${use_lm_valbest_average}; then
+		lang_model=rnnlm.val${lm_n_average}.avg.best
+		opt="--log ${lmexpdir}/log"
+	    else
+		lang_model=rnnlm.last${lm_n_average}.avg.best
+		opt="--log"
+	    fi
+	    average_checkpoints.py \
+		${opt} \
+		--backend ${backend} \
+		--snapshots ${lmexpdir}/snapshot.ep.* \
+		--out ${lmexpdir}/${lang_model} \
+		--num ${lm_n_average}
+	fi
+    fi	
+        
     pids=() # initialize pids
     for rtask in ${recog_set}; do
     (

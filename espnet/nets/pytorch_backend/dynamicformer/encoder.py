@@ -10,7 +10,9 @@ import logging
 import torch
 
 from espnet.nets.pytorch_backend.dynamicformer.encoder_layer import EncoderLayer
-from espnet.nets.pytorch_backend.conformer.subsampling import Conv2dSubsampling
+from espnet.nets.pytorch_backend.nets_utils import get_activation
+from espnet.nets.pytorch_backend.dynamicformer.se_layer import SELayer
+from espnet.nets.pytorch_backend.transformer.subsampling import Conv2dSubsampling
 from espnet.nets.pytorch_backend.transducer.vgg import VGG2L
 from espnet.nets.pytorch_backend.transformer.attention import (
     MultiHeadedAttention,  # noqa: H301
@@ -91,6 +93,7 @@ class Encoder(torch.nn.Module):
         lightconv_kernel_length=31,
         lightconv_usebias=False,
         lightconv_layer_number_str="all",
+        activation_type="swish",
         use_se_layer=False,
         se_activation=torch.nn.ReLU(),
         se_reduction_ratio=8,
@@ -98,6 +101,7 @@ class Encoder(torch.nn.Module):
         """Construct an Encoder object."""
         super(Encoder, self).__init__()
 
+        activation = get_activation(activation_type)
         if pos_enc_layer_type == "abs_pos":
             pos_enc_class = PositionalEncoding
         elif pos_enc_layer_type == "scaled_abs_pos":
@@ -119,6 +123,7 @@ class Encoder(torch.nn.Module):
             self.embed = Conv2dSubsampling(
                 idim,
                 attention_dim,
+                dropout_rate,
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif input_layer == "vgg2l":
@@ -141,7 +146,12 @@ class Encoder(torch.nn.Module):
         self.normalize_before = normalize_before
         if positionwise_layer_type == "linear":
             positionwise_layer = PositionwiseFeedForward
-            positionwise_layer_args = (attention_dim, linear_units, dropout_rate)
+            positionwise_layer_args = (
+                attention_dim,
+                linear_units,
+                dropout_rate,
+                activation,
+            )
         elif positionwise_layer_type == "conv1d":
             positionwise_layer = MultiLayeredConv1d
             positionwise_layer_args = (

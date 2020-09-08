@@ -1,0 +1,94 @@
+conf/tuning/train_pytorch_conformer.yaml
+best val scores =  0.9344410541970046
+reading model parameters from exp/train_pytorch_train_pytorch_conformer/results/model.val5.avg.best
+46.311954
+===================================================
+conf/tuning/train_pytorch_groupformer.yaml
+best val scores =  0.9220369001675228
+reading model parameters from exp/train_pytorch_train_pytorch_groupformer/results/model.val5.avg.best
+conf/tuning/train_pytorch_groupformer_grouplight.yaml
+best val scores =  0.9323171346698224
+reading model parameters from exp/train_pytorch_train_pytorch_groupformer_grouplight/results/model.val5.avg.best
+conf/tuning/train_pytorch_lightweightformer_wshare16_cnn_1234.yaml
+best val scores =  0.9349706078163998
+reading model parameters from exp/train_pytorch_train_pytorch_lightweightformer_wshare16_cnn_1234/results/model.val5.avg.best
+44.622162
+===================================================
+conf/tuning/train_pytorch_lightweightformer_wshare16_cnn_5678.yaml
+best val scores =  0.9353077947376205
+reading model parameters from exp/train_pytorch_train_pytorch_lightweightformer_wshare16_cnn_5678/results/model.val5.avg.best
+44.621842
+===================================================
+conf/tuning/train_pytorch_lightweightformer_wshare16_cnn_9012.yaml
+best val scores =  0.935836518134339
+reading model parameters from exp/train_pytorch_train_pytorch_lightweightformer_wshare16_cnn_9012/results/model.val5.avg.best
+44.621586
+===================================================
+conf/tuning/train_pytorch_lightweightformer_wshare16_kernelincrease.yaml
+best val scores =  0.9346509806300971
+reading model parameters from exp/train_pytorch_train_pytorch_lightweightformer_wshare16_kernelincrease/results/model.val5.avg.best
+46.210706
+===================================================
+conf/tuning/train_pytorch_pformer_attn_cnn_wshare16.yaml
+best val scores =  0.927869763670783
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_attn_cnn_wshare16/results/model.val5.avg.best
+46.477138
+===================================================
+conf/tuning/train_pytorch_pformer_attn_wshare16.yaml
+best val scores =  0.9337904465447789
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_attn_wshare16/results/model.val5.avg.best
+46.477138
+===================================================
+conf/tuning/train_pytorch_pformer_concat_channel.yaml
+best val scores =  0.9349727547613115
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_concat_channel/results/model.val5.avg.best
+46.27797
+===================================================
+conf/tuning/train_pytorch_pformer_concat_channel_cnn_1234.yaml
+best val scores =  0.9351134729640642
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_concat_channel_cnn_1234/results/model.val5.avg.best
+44.687954
+===================================================
+conf/tuning/train_pytorch_pformer_concat_channel_cnn_5678.yaml
+best val scores =  0.9345733307616372
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_concat_channel_cnn_5678/results/model.val5.avg.best
+44.687634
+===================================================
+conf/tuning/train_pytorch_pformer_concat_channel_cnn_9012.yaml
+best val scores =  0.935187857319339
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_concat_channel_cnn_9012/results/model.val5.avg.best
+44.687378
+===================================================
+conf/tuning/train_pytorch_pformer_keepone_cnn_1234.yaml
+best val scores =  0.9344977301711948
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_keepone_cnn_1234/results/model.val5.avg.best
+44.622162
+===================================================
+conf/tuning/train_pytorch_pformer_keepone_cnn_5678.yaml
+best val scores =  0.9350075081083297
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_keepone_cnn_5678/results/model.val5.avg.best
+44.622162
+===================================================
+conf/tuning/train_pytorch_pformer_keepone_cnn_9012.yaml
+best val scores =  0.9350075081083297
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_keepone_cnn_9012/results/model.val5.avg.best
+44.622162
+===================================================
+conf/tuning/train_pytorch_pformer_shuffle_channel.yaml
+best val scores =  0.934005861086858
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_shuffle_channel/results/model.val5.avg.best
+46.27797
+===================================================
+conf/tuning/train_pytorch_pformer_shuffle_channel_cnn9012.yaml
+best val scores =  0.9362241348967555
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_shuffle_channel_cnn9012/results/model.val5.avg.best
+44.687378
+===================================================
+conf/tuning/train_pytorch_pformer_vary_channel_decrease.yaml
+best val scores =  0.9319959559050087
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_vary_channel_decrease/results/model.val5.avg.best
+conf/tuning/train_pytorch_pformer_vary_channel_increase.yaml
+best val scores =  0.9329526451880983
+reading model parameters from exp/train_pytorch_train_pytorch_pformer_vary_channel_increase/results/model.val5.avg.best
+47.001682
+===================================================

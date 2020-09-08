@@ -69,6 +69,12 @@ class E2E(E2ETransformer):
             type=int,
             help="Kernel size of convolution module.",
         )
+        group.add_argument(
+            "--cnn-use-lightweight",
+            default=31,
+            type=int,
+            help="Use lightweight convolution in conformer depthwise",
+        )
         return parser
 
     def __init__(self, idim, odim, args, ignore_id=-1):
@@ -97,5 +103,6 @@ class E2E(E2ETransformer):
             macaron_style=args.macaron_style,
             use_cnn_module=args.use_cnn_module,
             cnn_module_kernel=args.cnn_module_kernel,
+            cnn_use_lightweight=args.cnn_use_lightweight,
         )
         self.reset_parameters(args)

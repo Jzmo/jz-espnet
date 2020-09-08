@@ -5,6 +5,35 @@ from espnet.nets.pytorch_backend.transformer.attention import MultiHeadedAttenti
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm
 
 
+class KeepOne(torch.nn.Module):
+    def __init__(self, size, keep=None):
+        super(KeepOne, self).__init__()
+        self.keep = keep
+
+    def forward(self, x1, x2):
+        B, T, C = x1.size()
+        if self.keep == "attn":
+            return x1
+        elif self.keep == "conv":
+            return x2
+
+
+class VaryChannel(torch.nn.Module):
+    def __init__(self, size, attn_dim=0):
+        super(VaryChannel, self).__init__()
+        self.size = size
+        self.conv1 = torch.nn.Conv1d(size, attn_dim, 1)
+        self.conv2 = torch.nn.Conv1d(size, size - attn_dim, 1)
+        self.n_group = 8
+
+    def forward(self, x1, x2):
+        B, T, C = x1.size()
+        x1 = self.conv1(x1.transpose(1, 2))  # B, C, T, attn output
+        x2 = self.conv2(x2.transpose(1, 2))  # B, C, t, conv output
+        x = torch.cat((x1, x2), dim=1).transpose(1, 2)  # B, T, C
+        return x
+
+
 class ConcatChannel(torch.nn.Module):
     def __init__(self, size, shuffle=False):
         super(ConcatChannel, self).__init__()

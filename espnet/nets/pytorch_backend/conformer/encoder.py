@@ -82,6 +82,7 @@ class Encoder(torch.nn.Module):
         use_cnn_module=False,
         cnn_module_kernel=31,
         padding_idx=-1,
+        cnn_use_lightweight=False,
     ):
         """Construct an Encoder object."""
         super(Encoder, self).__init__()
@@ -120,8 +121,7 @@ class Encoder(torch.nn.Module):
             )
         elif isinstance(input_layer, torch.nn.Module):
             self.embed = torch.nn.Sequential(
-                input_layer,
-                pos_enc_class(attention_dim, positional_dropout_rate),
+                input_layer, pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif input_layer is None:
             self.embed = torch.nn.Sequential(
@@ -177,7 +177,12 @@ class Encoder(torch.nn.Module):
             raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
 
         convolution_layer = ConvolutionModule
-        convolution_layer_args = (attention_dim, cnn_module_kernel, activation)
+        convolution_layer_args = (
+            attention_dim,
+            cnn_module_kernel,
+            activation,
+            cnn_use_lightweight,
+        )
 
         self.encoders = repeat(
             num_blocks,
