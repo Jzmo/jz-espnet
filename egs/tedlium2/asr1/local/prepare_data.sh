@@ -9,7 +9,6 @@
 
 . ./path.sh
 
-set -x
 export LC_ALL=C
 
 sph2pipe=sph2pipe
