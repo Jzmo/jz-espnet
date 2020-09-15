@@ -51,7 +51,5 @@ lightconv-wshare: 4
 lightconv-dim: 256
 conv-encoder-kernel-length: "31_31_31_31_31_31_31_31_31_31_31_31"
 conv-block-number: "9_10_11_12"
-use-se-layer: true
-se-block-number: "9_10_11_12"
-shuffle-after: true
-shuffle-block-number: "9_10_11_12"
+use-se-layer: false
+shuffle-after: false

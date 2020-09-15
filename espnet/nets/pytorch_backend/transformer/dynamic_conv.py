@@ -33,6 +33,7 @@ class DynamicConvolution(nn.Module):
         dropout_rate,
         kernel_size_str,
         lnum,
+        activation=None,
         use_kernel_mask=False,
         use_bias=False,
     ):
@@ -53,7 +54,7 @@ class DynamicConvolution(nn.Module):
         self.linear_weight = nn.Linear(n_feat, self.wshare * 1 * self.kernel_size)
         nn.init.xavier_uniform_(self.linear_weight.weight)
         self.act = nn.GLU()
-
+        self.act2 = activation
         # dynamic conv related
         self.use_bias = use_bias
         if self.use_bias:
@@ -88,6 +89,10 @@ class DynamicConvolution(nn.Module):
 
         # GLU activation
         x = self.act(x)
+
+        # swish activation
+        if self.act2:
+            x = self.act2(x)
 
         # get kernel of convolution
         weight = self.linear_weight(x)  # B x T x kH

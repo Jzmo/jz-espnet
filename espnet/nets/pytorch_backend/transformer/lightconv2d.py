@@ -33,6 +33,7 @@ class LightweightConvolution2D(nn.Module):
         dropout_rate,
         kernel_size_str,
         lnum,
+        activation=None,
         use_kernel_mask=False,
         use_bias=False,
     ):
@@ -50,7 +51,7 @@ class LightweightConvolution2D(nn.Module):
         self.linear1 = nn.Linear(n_feat, n_feat * 2)
         self.linear2 = nn.Linear(n_feat * 2, n_feat)
         self.act = nn.GLU()
-
+        self.act2 = activation
         # lightconv related
         self.weight = nn.Parameter(
             torch.Tensor(self.wshare, 1, self.kernel_size).uniform_(0, 1)
@@ -93,6 +94,10 @@ class LightweightConvolution2D(nn.Module):
 
         # GLU activation
         x = self.act(x)
+
+        # swish activation
+        if self.act2:
+            x = self.act2(x)
 
         # convolution along frequency axis
         weight_f = F.softmax(self.weight_f, dim=-1)

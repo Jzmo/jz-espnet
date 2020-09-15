@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_pformer_shuffle_channel_cnn9012.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer_parallel.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -260,28 +260,28 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     fi	
         
     pids=() # initialize pids
-    for rtask in ${recog_set}; do
+    for rtask in test; do # ${recog_set}; do
     (
         decode_dir=decode_${rtask}_$(basename ${decode_config%.*})_${lmtag}
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
 
         # split data
-        splitjson.py --parts ${nj} ${feat_recog_dir}/data.json
+        splitjson.py --parts ${nj} ${feat_recog_dir}/data_small.json
 
         #### use CPU for decoding
         ngpu=0
-
-        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode.JOB.log \
+	
+        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode_small.JOB.log \
             asr_recog.py \
             --config ${decode_config} \
             --ngpu ${ngpu} \
             --backend ${backend} \
             --batchsize 0 \
-            --recog-json ${feat_recog_dir}/split${nj}utt/data.JOB.json \
-            --result-label ${expdir}/${decode_dir}/data.JOB.json \
+            --recog-json ${feat_recog_dir}/split${nj}utt/data_small.JOB.json \
+            --result-label ${expdir}/${decode_dir}/data_small.JOB.json \
             --model ${expdir}/results/${recog_model}  \
             --rnnlm ${lmexpdir}/rnnlm.model.best \
-
+ 
         score_sclite.sh ${expdir}/${decode_dir} ${dict}
 
     ) &

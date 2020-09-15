@@ -8,15 +8,6 @@
 """ConvolutionModule definition."""
 
 from torch import nn
-from espnet.nets.pytorch_backend.transformer.dynamic_conv import DynamicConvolution
-from espnet.nets.pytorch_backend.transformer.dynamic_conv2d import DynamicConvolution2D
-from espnet.nets.pytorch_backend.transformer.lightconv import LightweightConvolution
-from espnet.nets.pytorch_backend.transformer.lightconv2d import LightweightConvolution2D
-from espnet.nets.pytorch_backend.transformer.embedding import (
-    PositionalEncoding,  # noqa: H301
-    ScaledPositionalEncoding,  # noqa: H301
-    RelPositionalEncoding,  # noqa: H301
-)
 
 
 class ConvolutionModule(nn.Module):
@@ -27,62 +18,37 @@ class ConvolutionModule(nn.Module):
 
     """
 
-    def __init__(
-        self,
-        channels,
-        kernel_size,
-        activation=nn.ReLU(),
-        use_lightweight=False,
-        bias=True,
-    ):
+    def __init__(self, channels, kernel_size, activation=nn.ReLU(), bias=True):
         """Construct an ConvolutionModule object."""
         super(ConvolutionModule, self).__init__()
         # kernerl_size should be a odd number for 'SAME' padding
         assert (kernel_size - 1) % 2 == 0
 
         self.pointwise_conv1 = nn.Conv1d(
-            channels, 2 * channels, kernel_size=1, stride=1, padding=0, bias=bias,
+            channels,
+            2 * channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=bias,
         )
-        if not cnn_use_lightweight:
-            self.depthwise_conv = nn.Conv1d(
-                channels,
-                channels,
-                kernel_size,
-                stride=1,
-                padding=(kernel_size - 1) // 2,
-                groups=channels,
-                bias=bias,
-            )
-        elif cnn_use_lightweight:
-            if cnn_lightconv_layer_type == "lightconv":
-                logging.info("encoder lightconv layer type = lightconv")
-                lightconv_layer = LightweightConvolution
-            elif cnn_lightconv_layer_type == "lightconv2d":
-                logging.info("encoder lightconv layer type = lightconv2d")
-                lightconv_layer = LightweightConvolution2D
-            elif cnn_lightconv_layer_type == "dynamicconv":
-                logging.info("encoder lightconv layer type = dynamicconv")
-                lightconv_layer = DynamicConvolution
-            elif cnn_lightconv_layer_type == "dynamicconv2d":
-                logging.info("encoder lightconv layer type = dynamicconv2d")
-                lightconv_layer = DynamicConvolution
-            else:
-                if lightconv_layer is not None:
-                    raise ValueError(
-                        "unknown encoder_lightconv_layer: " + lightconv_layer_type
-                    )
-            self.depthwise_conv = lightconv_layer(
-                lightweight_wshare,
-                channels,
-                0.1,
-                kernel_size,
-                lnum,
-                use_kernel_mask=False,
-                use_bias=bias,
-            )
+        self.depthwise_conv = nn.Conv1d(
+            channels,
+            channels,
+            kernel_size,
+            stride=1,
+            padding=(kernel_size - 1) // 2,
+            groups=channels,
+            bias=bias,
+        )
         self.norm = nn.BatchNorm1d(channels)
         self.pointwise_conv2 = nn.Conv1d(
-            channels, channels, kernel_size=1, stride=1, padding=0, bias=bias,
+            channels,
+            channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=bias,
         )
         self.activation = activation
 

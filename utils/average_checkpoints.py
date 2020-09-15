@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import collections
 import argparse
 import json
 import os
@@ -63,6 +64,7 @@ def main():
         import torch
 
         # sum
+
         for path in last:
             states = torch.load(path, map_location=torch.device("cpu"))["model"]
             if avg is None:
@@ -71,11 +73,9 @@ def main():
                 for k in avg.keys():
                     avg[k] += states[k]
 
-        # average
         for k in avg.keys():
             if avg[k] is not None:
-                avg[k] = torch.true_divide(avg[k], float(args.num))
-
+                avg[k] = avg[k] / args.num
         torch.save(avg, args.out)
 
     elif args.backend == "chainer":

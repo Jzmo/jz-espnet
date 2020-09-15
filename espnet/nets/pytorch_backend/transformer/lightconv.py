@@ -33,6 +33,7 @@ class LightweightConvolution(nn.Module):
         dropout_rate,
         kernel_size_str,
         lnum,
+        activation=None,
         use_kernel_mask=False,
         use_bias=False,
     ):
@@ -50,6 +51,7 @@ class LightweightConvolution(nn.Module):
         self.linear1 = nn.Linear(n_feat, n_feat * 2)
         self.linear2 = nn.Linear(n_feat, n_feat)
         self.act = nn.GLU()
+        self.act2 = activation
 
         # lightconv related
         self.weight = nn.Parameter(
@@ -90,6 +92,10 @@ class LightweightConvolution(nn.Module):
 
         # GLU activation
         x = self.act(x)
+
+        # swish activation
+        if self.act2:
+            x = self.act2(x)
 
         # lightconv
         x = x.transpose(1, 2).contiguous().view(-1, H, T)  # B x C x T
