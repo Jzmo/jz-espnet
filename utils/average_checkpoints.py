@@ -72,7 +72,6 @@ def main():
             else:
                 for k in avg.keys():
                     avg[k] += states[k]
-
         for k in avg.keys():
             if avg[k] is not None:
                 avg[k] = avg[k] / args.num

@@ -51,8 +51,8 @@ class EncoderLayerStack(nn.Module):
         feed_forward_macaron,
         conv,
         use_pos_enc_conv,
-        se_layer,
         dual_proj,
+        se_layer,
         shuffle_after,
         dropout_rate,
         ff_scale=1.0,
@@ -66,7 +66,6 @@ class EncoderLayerStack(nn.Module):
         self.feed_forward_macaron = feed_forward_macaron
         self.conv = conv
         self.use_pos_enc_conv = use_pos_enc_conv
-        self.dual_proj = dual_proj
         self.se_layer = se_layer
         self.shuffle_after = shuffle_after
         self.ff_scale = ff_scale
@@ -284,7 +283,6 @@ class EncoderLayerParallel(nn.Module):
 
         if x_att is not None and x_conv is not None:
             x = self.dual_proj(x_att, x_conv)
-            print("dual:", self.dual_proj, x.size())
         elif x_att is not None and x_conv is None:
             x = x_att
         elif x_att is None and x_conv is not None:

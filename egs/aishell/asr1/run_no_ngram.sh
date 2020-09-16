@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=4        # start from 0 if you need to start from data preparation
+stage=5        # start from 0 if you need to start from data preparation
 stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_lightweightformer_parallel.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer_se.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -266,19 +266,19 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
 
         # split data
-        splitjson.py --parts ${nj} ${feat_recog_dir}/data_small.json
+        splitjson.py --parts ${nj} ${feat_recog_dir}/data.json
 
         #### use CPU for decoding
         ngpu=0
 	
-        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode_small.JOB.log \
+        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode.JOB.log \
             asr_recog.py \
             --config ${decode_config} \
             --ngpu ${ngpu} \
             --backend ${backend} \
             --batchsize 0 \
-            --recog-json ${feat_recog_dir}/split${nj}utt/data_small.JOB.json \
-            --result-label ${expdir}/${decode_dir}/data_small.JOB.json \
+            --recog-json ${feat_recog_dir}/split${nj}utt/data.JOB.json \
+            --result-label ${expdir}/${decode_dir}/data.JOB.json \
             --model ${expdir}/results/${recog_model}  \
             --rnnlm ${lmexpdir}/rnnlm.model.best \
  
