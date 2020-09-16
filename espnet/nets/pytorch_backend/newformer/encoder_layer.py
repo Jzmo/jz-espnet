@@ -141,7 +141,7 @@ class EncoderLayerStack(nn.Module):
                 x = self.norm_conv(x)
             if self.use_pos_enc_conv:
                 x = x + pos_emb
-            x = self.dropout(self.conv(x, x, x, mask))
+            x = self.dropout(self.conv(x, x, x, None))
             x = residual + x
             if not self.normalize_before:
                 x = self.norm_conv(x)  # B, T, C
@@ -275,9 +275,9 @@ class EncoderLayerParallel(nn.Module):
         if self.conv is not None:
             if self.use_pos_enc_conv:
                 x_conv = x + pos_emb
-                x_conv = residual + self.dropout(self.conv(x_conv, None, None, mask))
+                x_conv = residual + self.dropout(self.conv(x_conv, None, None, None))
             else:
-                x_conv = residual + self.dropout(self.conv(x, None, None, mask))
+                x_conv = residual + self.dropout(self.conv(x, None, None, None))
             if not self.normalize_before:
                 x_conv = self.norm_conv(x_conv)  # B, T, C
 
