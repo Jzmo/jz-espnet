@@ -43,7 +43,7 @@ tag="" # tag for managing experiments.
 set -u
 set -o pipefail
 
-train_set=train
+train_set=train_sp
 train_dev=dev
 recog_set="dev test"
 

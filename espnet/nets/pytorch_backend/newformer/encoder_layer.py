@@ -147,8 +147,9 @@ class EncoderLayerStack(nn.Module):
                 x = self.norm_conv(x)  # B, T, C
 
         if self.se_layer is not None:
+            residual = x
             x = self.se_layer(x.transpose(1, 2))  # B, T, C -> B, C, T
-            x = x.transpose(1, 2)  # B, C, T -> B, T, C
+            x = residual + x.transpose(1, 2)  # B, C, T -> B, T, C
 
         if self.shuffle_after:
             B, T, C = x.size()
@@ -291,8 +292,9 @@ class EncoderLayerParallel(nn.Module):
             raise ValueError("neither self attention or convolution module exist")
 
         if self.se_layer is not None:
+            residual = x
             x = self.se_layer(x.transpose(1, 2))  # B, T, C -> B, C, T
-            x = x.transpose(1, 2)  # B, C, T -> B, T, C
+            x = residual + x.transpose(1, 2)  # B, C, T -> B, T, C
 
         if self.shuffle_after:
             B, T, C = x.size()

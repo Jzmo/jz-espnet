@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=4        # start from 0 if you need to start from data preparation
+stage=5        # start from 0 if you need to start from data preparation
 stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_conformer.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer_pos_emb.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -53,7 +53,7 @@ tag="" # tag for managing experiments.
 set -e
 set -u
 set -o pipefail
-
+set -x
 train_set=train_sp
 train_dev=dev
 recog_set="dev test"
@@ -232,12 +232,12 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 	    recog_model=model.last${n_average}.avg.best
 	    opt="--log"
 	fi
-	average_checkpoints.py \
-	    ${opt} \
-	    --backend ${backend} \
-	    --snapshots ${expdir}/results/snapshot.ep.* \
-	    --out ${expdir}/results/${recog_model} \
-	    --num ${n_average}
+	#average_checkpoints.py \
+	#   ${opt} \
+	#    --backend ${backend} \
+	#    --snapshots ${expdir}/results/snapshot.ep.* \
+	#    --out ${expdir}/results/${recog_model} \
+	#    --num ${n_average}
 	
 	# Average LM models
 	if [ ${lm_n_average} -eq 0 ]; then

@@ -177,12 +177,7 @@ class Encoder(torch.nn.Module):
             raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
 
         convolution_layer = ConvolutionModule
-        convolution_layer_args = (
-            attention_dim,
-            cnn_module_kernel,
-            activation,
-            cnn_use_lightweight,
-        )
+        convolution_layer_args = (attention_dim, cnn_module_kernel, activation)
 
         self.encoders = repeat(
             num_blocks,

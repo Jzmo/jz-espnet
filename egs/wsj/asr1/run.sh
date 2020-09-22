@@ -26,7 +26,7 @@ min_io_delta=4  # samples with `len(input) - len(output) * min_io_ratio < min_io
 
 # config files
 preprocess_config=conf/no_preprocess.yaml  # use conf/specaug.yaml for data augmentation
-train_config=conf/tuning/train_pytorch_dynamicformer_warmup25000.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
