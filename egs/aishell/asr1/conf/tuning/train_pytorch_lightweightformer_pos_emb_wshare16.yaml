@@ -45,8 +45,11 @@ transformer-encoder-pos-enc-layer-type: rel_pos
 transformer-encoder-selfattn-layer-type: rel_selfattn
 macaron-style: true
 conv-encoder-type: stack
+use-pos-enc-conv: true
 conv-encoder-layer-type: lightconv
 lightconv-wshare: 16
 lightconv-dim: 256
-conv-encoder-kernel-length: "31_31_27_27_25_25_23_23_21_21_19_19"
+conv-encoder-kernel-length: "31_31_31_31_31_31_31_31_31_31_31_31"
 conv-block-number: "9_10_11_12"
+use-se-layer: false
+shuffle-after: false

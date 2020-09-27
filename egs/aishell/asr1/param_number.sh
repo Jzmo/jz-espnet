@@ -30,8 +30,8 @@ lmtag=             # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-n_average=10
-use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
+n_average=5
+use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
                              # if false, the last `n_average` ASR models will be averaged.
 # exp tag
 tag="" # tag for managing experiments.

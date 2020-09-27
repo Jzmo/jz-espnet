@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=5        # start from 0 if you need to start from data preparation
+stage=4        # start from 0 if you need to start from data preparation
 stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_lightweightformer_pos_emb.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer_wshare16_12.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 

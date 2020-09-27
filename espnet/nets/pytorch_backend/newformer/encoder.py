@@ -249,7 +249,7 @@ class Encoder(torch.nn.Module):
 
         if conv_block_number_str == "all":
             conv_block_number = [True for _ in range(num_blocks)]
-        elif "_" in conv_block_number_str:
+        elif "_" in conv_block_number_str or conv_block_number_str.isnumeric():
             layers = conv_block_number_str.split("_")
             conv_block_number = [
                 True if str(nb) in layers else False for nb in range(1, num_blocks + 1)
