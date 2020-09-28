@@ -20,22 +20,25 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_multiconformer.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer_pos_emb.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/decode.yaml
+decode_config=conf/decode_print.yaml
 
 # rnnlm related
 lm_resume=         # specify a snapshot file to resume LM training
 lmtag=             # tag for managing LMs
 
-# ngram
-ngramtag=
-n_gram=4
-
 # decoding parameter
-recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-n_average=10
+recog_model=model.acc.best  # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
+lang_model=rnnlm.model.best # set a language model to be used for decoding
 
+# model average realted (only for transformer)
+n_average=10                  # the number of ASR models to be averaged
+use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
+# if false, the last `n_average` ASR models will be averaged.
+lm_n_average=0               # the number of languge models to be averaged
+use_lm_valbest_average=false # if true, the validation `lm_n_average`-best language models will be averaged.
+                             # if false, the last `lm_n_average` language models will be averaged.
 # data
 data=/export/fs04/a05/xna/data/aishell
 data_url=www.openslr.org/resources/33
@@ -50,7 +53,7 @@ tag="" # tag for managing experiments.
 set -e
 set -u
 set -o pipefail
-
+set -x
 train_set=train_sp
 train_dev=dev
 recog_set="dev test"
@@ -160,12 +163,6 @@ lmexpname=train_rnnlm_${backend}_${lmtag}
 lmexpdir=exp/${lmexpname}
 mkdir -p ${lmexpdir}
 
-ngramexpname=train_ngram
-ngramexpdir=exp/${ngramexpname}
-if [ -z ${ngramtag} ]; then
-    ngramtag=${n_gram}
-fi
-mkdir -p ${ngramexpdir}
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "stage 3: LM Preparation"
@@ -189,8 +186,6 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
         --resume ${lm_resume} \
         --dict ${dict}
     
-    lmplz --discount_fallback -o ${n_gram} <${lmdatadir}/train.txt > ${ngramexpdir}/${n_gram}gram.arpa
-    build_binary -s ${ngramexpdir}/${n_gram}gram.arpa ${ngramexpdir}/${n_gram}gram.bin
 fi
 
 
@@ -226,42 +221,68 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=32
+    nj=1
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
-       [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
-        recog_model=model.last${n_average}.avg.best
-        average_checkpoints.py --backend ${backend} \
-        		       --snapshots ${expdir}/results/snapshot.ep.* \
-        		       --out ${expdir}/results/${recog_model} \
-        		       --num ${n_average}
-    fi
+	   [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
+	# Average ASR models
+	if ${use_valbest_average}; then
+	    recog_model=model.val${n_average}.avg.best
+	    opt="--log ${expdir}/results/log"
+	else
+	    recog_model=model.last${n_average}.avg.best
+	    opt="--log"
+	fi
+	#average_checkpoints.py \
+	#   ${opt} \
+	#    --backend ${backend} \
+	#    --snapshots ${expdir}/results/snapshot.ep.* \
+	#    --out ${expdir}/results/${recog_model} \
+	#    --num ${n_average}
+	
+	# Average LM models
+	if [ ${lm_n_average} -eq 0 ]; then
+	    lang_model=rnnlm.model.best
+	else
+	    if ${use_lm_valbest_average}; then
+		lang_model=rnnlm.val${lm_n_average}.avg.best
+		opt="--log ${lmexpdir}/log"
+	    else
+		lang_model=rnnlm.last${lm_n_average}.avg.best
+		opt="--log"
+	    fi
+	    average_checkpoints.py \
+		${opt} \
+		--backend ${backend} \
+		--snapshots ${lmexpdir}/snapshot.ep.* \
+		--out ${lmexpdir}/${lang_model} \
+		--num ${lm_n_average}
+	fi
+    fi	
+        
     pids=() # initialize pids
-    for rtask in ${recog_set}; do
+    for rtask in test; do # ${recog_set}; do
     (
-        decode_dir=decode_${rtask}_$(basename ${decode_config%.*})_${lmtag}_${ngramtag}
+        decode_dir=decode_${rtask}_$(basename ${decode_config%.*})_${lmtag}
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
 
         # split data
-        splitjson.py --parts ${nj} ${feat_recog_dir}/data.json
+        splitjson.py --parts ${nj} ${feat_recog_dir}/data_small.json
 
         #### use CPU for decoding
         ngpu=0
-
-        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode.JOB.log \
+	
+        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode_small.JOB.log \
             asr_recog.py \
             --config ${decode_config} \
             --ngpu ${ngpu} \
             --backend ${backend} \
             --batchsize 0 \
-            --recog-json ${feat_recog_dir}/split${nj}utt/data.JOB.json \
-            --result-label ${expdir}/${decode_dir}/data.JOB.json \
+            --recog-json ${feat_recog_dir}/split${nj}utt/data_small.JOB.json \
+            --result-label ${expdir}/${decode_dir}/data_small.JOB.json \
             --model ${expdir}/results/${recog_model}  \
             --rnnlm ${lmexpdir}/rnnlm.model.best \
-            --ngram-model ${ngramexpdir}/${n_gram}gram.bin \
-	    --ngram-scorer "full" \
-            --api v2
-
-        score_sclite.sh ${expdir}/${decode_dir} ${dict}
+ 
+        score_sclite_small.sh ${expdir}/${decode_dir} ${dict}
 
     ) &
     pids+=($!) # store background pids

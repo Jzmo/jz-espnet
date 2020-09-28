@@ -312,8 +312,9 @@ class Encoder(torch.nn.Module):
                 se_layer if use_se_layer and se_block_number[lnum] else None,
                 shuffle_after and shuffle_block_number[lnum],
                 dropout_rate,
-                normalize_before,
-                concat_after,
+                normalize_before=normalize_before,
+                concat_after=concat_after,
+                lnum=lnum,
             ),
         )
         if self.normalize_before:

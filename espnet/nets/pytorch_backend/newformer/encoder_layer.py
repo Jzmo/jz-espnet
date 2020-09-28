@@ -7,10 +7,21 @@
 """Encoder self-attention layer definition."""
 
 import torch
+import numpy as np
 
 from torch import nn
-
 from espnet.nets.pytorch_backend.transformer.layer_norm import LayerNorm
+
+
+def write_to(filename, tensor):
+    with open(filename, "ab") as f:
+        # Append 'hello' at the end of file
+        if len(tensor.size()) > 2:
+            for tensor_slice in tensor:
+                np.savetxt(f, tensor_slice.numpy())
+        else:
+            np.savetxt(f, tensor.numpy())
+    f.close()
 
 
 class EncoderLayerStack(nn.Module):
@@ -58,6 +69,7 @@ class EncoderLayerStack(nn.Module):
         ff_scale=1.0,
         normalize_before=True,
         concat_after=False,
+        lnum=None,
     ):
         """Construct an EncoderLayer object."""
         super(EncoderLayerStack, self).__init__()
@@ -83,6 +95,7 @@ class EncoderLayerStack(nn.Module):
         self.concat_after = concat_after
         if self.concat_after:
             self.concat_linear = nn.Linear(size + size, size)
+        self.lnum = lnum
 
     def forward(self, x_input, mask, cache=None):
         """Compute encoded features.
@@ -99,6 +112,8 @@ class EncoderLayerStack(nn.Module):
         else:
             x, pos_emb = x_input, None
 
+        # write_to("feature_map/before_ffm.lnum{}".format(self.lnum), x)
+
         # whether to use macaron style
         if self.feed_forward_macaron is not None:
             residual = x
@@ -107,6 +122,8 @@ class EncoderLayerStack(nn.Module):
             x = residual + self.ff_scale * self.dropout(self.feed_forward_macaron(x))
             if not self.normalize_before:
                 x = self.norm_ff_macaron(x)
+
+        # write_to("feature_map/after_ffm.lnum{}".format(self.lnum), x)
 
         # multi-headed self-attention module
         if self.self_attn is not None:
@@ -133,7 +150,7 @@ class EncoderLayerStack(nn.Module):
                 x = residual + self.dropout(x_att)
             if not self.normalize_before:
                 x = self.norm_mha(x)
-
+        # write_to("feature_map/after_attn.lnum{}".format(self.lnum), x)
         # light convolution module
         if self.conv is not None:
             residual = x
@@ -145,7 +162,7 @@ class EncoderLayerStack(nn.Module):
             x = residual + x
             if not self.normalize_before:
                 x = self.norm_conv(x)  # B, T, C
-
+        # write_to("feature_map/after_conv.lnum{}".format(self.lnum), x)
         if self.se_layer is not None:
             residual = x
             x = self.se_layer(x.transpose(1, 2))  # B, T, C -> B, C, T
@@ -164,10 +181,10 @@ class EncoderLayerStack(nn.Module):
         x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
         if not self.normalize_before:
             x = self.norm_ff(x)
-
+        # write_to("feature_map/after_ff.lnum{}".format(self.lnum), x)
         if self.conv is not None:
             x = self.norm_final(x)
-
+        # write_to("feature_map/after_finalnorm.lnum{}".format(self.lnum), x)
         if cache is not None:
             x = torch.cat([cache, x], dim=1)
 
