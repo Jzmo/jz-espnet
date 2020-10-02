@@ -20,9 +20,9 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_lightweightformer_pos_emb.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/decode_print.yaml
+decode_config=conf/decode.yaml
 
 # rnnlm related
 lm_resume=         # specify a snapshot file to resume LM training
@@ -232,12 +232,12 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 	    recog_model=model.last${n_average}.avg.best
 	    opt="--log"
 	fi
-	#average_checkpoints.py \
-	#   ${opt} \
-	#    --backend ${backend} \
-	#    --snapshots ${expdir}/results/snapshot.ep.* \
-	#    --out ${expdir}/results/${recog_model} \
-	#    --num ${n_average}
+	average_checkpoints.py \
+	   ${opt} \
+	    --backend ${backend} \
+	    --snapshots ${expdir}/results/snapshot.ep.* \
+	    --out ${expdir}/results/${recog_model} \
+	    --num ${n_average}
 	
 	# Average LM models
 	if [ ${lm_n_average} -eq 0 ]; then
@@ -266,23 +266,23 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
 
         # split data
-        splitjson.py --parts ${nj} ${feat_recog_dir}/data_small.json
+        splitjson.py --parts ${nj} ${feat_recog_dir}/data.json
 
         #### use CPU for decoding
         ngpu=0
 	
-        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode_small.JOB.log \
+        ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode.JOB.log \
             asr_recog.py \
             --config ${decode_config} \
             --ngpu ${ngpu} \
             --backend ${backend} \
             --batchsize 0 \
-            --recog-json ${feat_recog_dir}/split${nj}utt/data_small.JOB.json \
-            --result-label ${expdir}/${decode_dir}/data_small.JOB.json \
+            --recog-json ${feat_recog_dir}/split${nj}utt/data.JOB.json \
+            --result-label ${expdir}/${decode_dir}/data.JOB.json \
             --model ${expdir}/results/${recog_model}  \
             --rnnlm ${lmexpdir}/rnnlm.model.best \
  
-        score_sclite_small.sh ${expdir}/${decode_dir} ${dict}
+        score_sclite.sh ${expdir}/${decode_dir} ${dict}
 
     ) &
     pids+=($!) # store background pids
