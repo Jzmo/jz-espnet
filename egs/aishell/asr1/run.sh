@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_lightweightformer.yaml
+train_config=conf/tuning/train_pytorch_conformer.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -33,8 +33,8 @@ recog_model=model.acc.best  # set a model to be used for decoding: 'model.acc.be
 lang_model=rnnlm.model.best # set a language model to be used for decoding
 
 # model average realted (only for transformer)
-n_average=10                  # the number of ASR models to be averaged
-use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
+n_average=5                  # the number of ASR models to be averaged
+use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
 # if false, the last `n_average` ASR models will be averaged.
 lm_n_average=0               # the number of languge models to be averaged
 use_lm_valbest_average=false # if true, the validation `lm_n_average`-best language models will be averaged.
@@ -221,7 +221,7 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=1
+    nj=32
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
 	   [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
 	# Average ASR models
@@ -260,7 +260,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     fi	
         
     pids=() # initialize pids
-    for rtask in test; do # ${recog_set}; do
+    for rtask in ${recog_set}; do
     (
         decode_dir=decode_${rtask}_$(basename ${decode_config%.*})_${lmtag}
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}
