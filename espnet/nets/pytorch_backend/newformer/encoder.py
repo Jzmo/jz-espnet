@@ -238,7 +238,7 @@ class Encoder(torch.nn.Module):
             conv_layer = DynamicConvolution
         elif conv_encoder_layer_type == "conformer_conv1d":
             logging.info("encoder lightconv layer type = conformer1d")
-            conv_layer = ConformerConformerConvolutionModule
+            conv_layer = ConformerConvolutionModule
         elif conv_encoder_layer_type == "lightdepthwise":
             logging.info("encoder lightconv layer type = lightdepthwiseconv1d")
             conv_layer = LightDepthwiseConvolutionModule

@@ -36,7 +36,7 @@ class ConformerConvolutionModule(nn.Module):
         assert (self.kernel_size - 1) % 2 == 0
 
         self.pointwise_conv1 = nn.Conv1d(
-            channels, 2 * channels, kernel_size=1, stride=1, padding=0, bias=bias,
+            channels, 2 * channels, kernel_size=1, stride=1, padding=0, bias=use_bias,
         )
         self.depthwise_conv = nn.Conv1d(
             channels,
@@ -45,11 +45,11 @@ class ConformerConvolutionModule(nn.Module):
             stride=1,
             padding=(self.kernel_size - 1) // 2,
             groups=channels,
-            bias=bias,
+            bias=use_bias,
         )
         self.norm = nn.BatchNorm1d(channels)
         self.pointwise_conv2 = nn.Conv1d(
-            channels, channels, kernel_size=1, stride=1, padding=0, bias=bias,
+            channels, channels, kernel_size=1, stride=1, padding=0, bias=use_bias,
         )
         self.activation = activation
 

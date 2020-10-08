@@ -39,9 +39,11 @@ transformer-attn-dropout-rate: 0.0
 transformer-length-normalized-loss: false
 transformer-init: pytorch
 
+
 # dynamic conv specific setting
 transformer-encoder-pos-enc-layer-type: rel_pos
 transformer-encoder-selfattn-layer-type: rel_selfattn
+transformer-encoder-activation-type: swish
 macaron-style: true
 lightconv-encoder-layer-type: lightconv
 lightconv-wshare: 16

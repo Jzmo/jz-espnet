@@ -1,5 +1,6 @@
 # network architecture
 # encoder related
+transformer-input-layer: conv2d
 elayers: 12
 eunits: 2048
 # decoder related
@@ -8,6 +9,8 @@ dunits: 2048
 # attention related
 adim: 256
 aheads: 4
+# transformer related
+model-module: "espnet.nets.pytorch_backend.e2e_asr_newformer:E2E"
 
 # hybrid CTC/attention
 mtlalpha: 0.3
@@ -17,34 +20,31 @@ lsm-weight: 0.1
 
 # minibatch related
 batch-size: 32
-maxlen-in: 512  # if input length  > maxlen-in, batchsize is automatically reduced
-maxlen-out: 150 # if output length > maxlen-out, batchsize is automatically reduced
+maxlen-in: 512  # if input length  > maxlen_in, batchsize is automatically reduced
+maxlen-out: 150 # if output length > maxlen_out, batchsize is automatically reduced
 
 # optimization related
 sortagrad: 0 # Feed samples from shortest to longest ; -1: enabled for all epochs, 0: disabled, other: enabled for 'other' epochs
 opt: noam
+epochs: 50
+dropout-rate: 0.1
 accum-grad: 2
 grad-clip: 5
 patience: 0
-epochs: 50
-dropout-rate: 0.1
-
-# transformer specific setting
-backend: pytorch
-model-module: "espnet.nets.pytorch_backend.e2e_asr_dynamicformer:E2E"
-transformer-input-layer: conv2d     # encoder architecture type
-transformer-lr: 1.0
+transformer-lr: 5.0
 transformer-warmup-steps: 25000
 transformer-attn-dropout-rate: 0.0
-transformer-length-normalized-loss: false
+transformer-length-normalized-loss: False
 transformer-init: pytorch
 
-# dynamic conv specific setting
+# conformer specific setting
 transformer-encoder-pos-enc-layer-type: rel_pos
 transformer-encoder-selfattn-layer-type: rel_selfattn
+transformer-encoder-activation-type: swish
 macaron-style: true
-lightconv-encoder-layer-type: lightconv
+conv-encoder-type: stack
+conv-encoder-layer-type: dynamicconv
 lightconv-wshare: 16
 lightconv-dim: 256
-lightconv-encoder-kernel-length: "31_31_27_27_25_25_23_23_21_21_19_19"
-lightconv-layer-number: "9_10_11_12"
+conv-encoder-kernel-length: "31_31_31_31_31_31_31_31_31_31_31_31"
+conv-block-number: "9_10_11_12"
