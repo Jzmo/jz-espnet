@@ -31,7 +31,7 @@ dropout-rate: 0.1
 
 # transformer specific setting
 backend: pytorch
-model-module: "espnet.nets.pytorch_backend.e2e_asr_newformer:E2E"
+model-module: "espnet.nets.pytorch_backend.e2e_asr_dynamicformer:E2E"
 transformer-input-layer: conv2d     # encoder architecture type
 transformer-lr: 1.0
 transformer-warmup-steps: 25000
@@ -44,9 +44,8 @@ transformer-init: pytorch
 transformer-encoder-pos-enc-layer-type: rel_pos
 transformer-encoder-selfattn-layer-type: rel_selfattn
 macaron-style: true
-conv-encoder-type: stack
-conv-encoder-layer-type: lightconv
+lightconv-encoder-layer-type: lightconv
 lightconv-wshare: 16
 lightconv-dim: 256
-conv-encoder-kernel-length: "31_31_27_27_25_25_23_23_15_15_15_15"
-conv-block-number: "9_10_11_12"
+lightconv-encoder-kernel-length: "31_31_27_27_25_25_23_23_21_21_19_19"
+lightconv-layer-number: "9_10_11_12"

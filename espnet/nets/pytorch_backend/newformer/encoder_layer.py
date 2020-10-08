@@ -158,7 +158,7 @@ class EncoderLayerStack(nn.Module):
                 x = self.norm_conv(x)
             if self.use_pos_enc_conv:
                 x = x + pos_emb
-            x = self.dropout(self.conv(x, x, x, None))
+            x = self.dropout(self.conv(x, x, x, mask))
             x = residual + x
             if not self.normalize_before:
                 x = self.norm_conv(x)  # B, T, C
@@ -175,12 +175,14 @@ class EncoderLayerStack(nn.Module):
             x = x.view(B, T, C)
 
         # feed forward module
-        residual = x
-        if self.normalize_before:
-            x = self.norm_ff(x)
-        x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
-        if not self.normalize_before:
-            x = self.norm_ff(x)
+        if self.feed_forward is not None:
+            residual = x
+            if self.normalize_before:
+                x = self.norm_ff(x)
+            x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
+            if not self.normalize_before:
+                x = self.norm_ff(x)
+
         # write_to("feature_map/after_ff.lnum{}".format(self.lnum), x)
         if self.conv is not None:
             x = self.norm_final(x)
@@ -210,6 +212,7 @@ class EncoderLayerParallel(nn.Module):
         ff_scale=1.0,
         normalize_before=True,
         concat_after=False,
+        lnum=None,
     ):
         super(EncoderLayerParallel, self).__init__()
         self.self_attn = self_attn
@@ -235,6 +238,7 @@ class EncoderLayerParallel(nn.Module):
         self.concat_after = concat_after
         if self.concat_after:
             self.concat_linear = nn.Linear(size + size, size)
+        self.lnum = lnum
 
     def forward(self, x_input, mask, cache=None):
         """Compute encoded features.
@@ -320,12 +324,13 @@ class EncoderLayerParallel(nn.Module):
             x = x.view(B, T, C)
 
         # feed forward module
-        residual = x
-        if self.normalize_before:
-            x = self.norm_ff(x)
-        x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
-        if not self.normalize_before:
-            x = self.norm_ff(x)
+        if self.feed_forward is not None:
+            residual = x
+            if self.normalize_before:
+                x = self.norm_ff(x)
+            x = residual + self.ff_scale * self.dropout(self.feed_forward(x))
+            if not self.normalize_before:
+                x = self.norm_ff(x)
 
         if self.conv is not None:
             x = self.norm_final(x)

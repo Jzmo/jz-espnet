@@ -48,5 +48,6 @@ conv-encoder-type: stack
 conv-encoder-layer-type: lightconv
 lightconv-wshare: 16
 lightconv-dim: 256
-conv-encoder-kernel-length: "31_31_27_27_25_25_23_23_15_15_15_15"
-conv-block-number: "9_10_11_12"
+conv-encoder-kernel-length: "15_15_15_15_15_15_15_15_15_15_15_15"
+conv-block-number: "1_2_3_4"
+ff-block-number: "1_2_3_4"

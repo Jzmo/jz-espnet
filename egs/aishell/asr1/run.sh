@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=5        # start from 0 if you need to start from data preparation
+stage=4        # start from 0 if you need to start from data preparation
 stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_conformer.yaml
+train_config=conf/tuning/train_pytorch_lightweightformer_wshare16_cnn_9012_baseline.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -33,7 +33,7 @@ recog_model=model.acc.best  # set a model to be used for decoding: 'model.acc.be
 lang_model=rnnlm.model.best # set a language model to be used for decoding
 
 # model average realted (only for transformer)
-n_average=5                  # the number of ASR models to be averaged
+n_average=10                  # the number of ASR models to be averaged
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
 # if false, the last `n_average` ASR models will be averaged.
 lm_n_average=0               # the number of languge models to be averaged
@@ -222,9 +222,11 @@ fi
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
     nj=32
+    echo $(get_yaml.py ${train_config} model-module)
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
 	   [[ $(get_yaml.py ${train_config} model-module) = *former* ]]; then
 	# Average ASR models
+	
 	if ${use_valbest_average}; then
 	    recog_model=model.val${n_average}.avg.best
 	    opt="--log ${expdir}/results/log"
@@ -232,12 +234,12 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 	    recog_model=model.last${n_average}.avg.best
 	    opt="--log"
 	fi
-	average_checkpoints.py \
-	   ${opt} \
-	    --backend ${backend} \
-	    --snapshots ${expdir}/results/snapshot.ep.* \
-	    --out ${expdir}/results/${recog_model} \
-	    --num ${n_average}
+	#average_checkpoints.py \
+	#   ${opt} \
+	#    --backend ${backend} \
+	#    --snapshots ${expdir}/results/snapshot.ep.* \
+	#    --out ${expdir}/results/${recog_model} \
+	#    --num ${n_average}
 	
 	# Average LM models
 	if [ ${lm_n_average} -eq 0 ]; then

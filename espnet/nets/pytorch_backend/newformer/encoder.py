@@ -105,6 +105,7 @@ class Encoder(torch.nn.Module):
         conv_usebias=False,
         conv_kernel_length_str="31",
         conv_block_number_str="all",
+        ff_block_number_str="all",
         use_se_layer=False,
         se_block_number_str="",
         se_activation=torch.nn.ReLU(),
@@ -258,6 +259,15 @@ class Encoder(torch.nn.Module):
             raise ValueError(
                 "unknown encoder_conv_layer_number: " + conv_block_number_str
             )
+        if ff_block_number_str == "all":
+            ff_block_number = [True for _ in range(num_blocks)]
+        elif "_" in ff_block_number_str or _block_number_str.isnumeric():
+            layers = ff_block_number_str.split("_")
+            ff_block_number = [
+                True if str(nb) in layers else False for nb in range(1, num_blocks + 1)
+            ]
+        else:
+            raise ValueError("unknown encoder_ff_layer_number:" + ff_block_number_str)
 
         if use_se_layer:
             if se_block_number_str == "":
@@ -294,8 +304,12 @@ class Encoder(torch.nn.Module):
                 encoder_selfattn_layer(*encoder_selfattn_layer_args)
                 if attn_block_number[lnum]
                 else None,
-                positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
+                positionwise_layer(*positionwise_layer_args)
+                if ff_block_number[lnum]
+                else None,
+                positionwise_layer(*positionwise_layer_args)
+                if ff_block_number[lnum] and macaron_style
+                else None,
                 conv_layer(
                     lightconv_wshare,
                     lightconv_dim,

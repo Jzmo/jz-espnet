@@ -94,6 +94,12 @@ class E2E(E2EConformer):
             help="block number with convolultion, default to be applied to all layers",
         )
         group.add_argument(
+            "--ff-block-number",
+            default="all",
+            type=str,
+            help="block number with feedforward module, default to be applied to all layers",
+        )
+        group.add_argument(
             "--use-se-layer",
             default=False,
             type=strtobool,
@@ -157,6 +163,7 @@ class E2E(E2EConformer):
             lightconv_dropout_rate=args.lightconv_dropout_rate,
             conv_kernel_length_str=args.conv_encoder_kernel_length,
             conv_block_number_str=args.conv_block_number,
+            ff_block_number_str=args.ff_block_number,
             use_se_layer=args.use_se_layer,
             se_block_number_str=args.se_block_number,
             shuffle_after=args.shuffle_after,
