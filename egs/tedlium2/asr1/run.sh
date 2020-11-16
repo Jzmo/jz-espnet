@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
-stop_stage=5
+stage=-1       # start from -1 if you need to start from data download
+stop_stage=2
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/todo.yuya.10.8/train_pytorch_lightdepthwise_9012_k21-19.yaml
+train_config=conf/train.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 

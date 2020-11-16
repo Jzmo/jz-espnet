@@ -159,8 +159,12 @@ warp-transducer.done: pytorch.done conda_packages.done
 	. ./activate_python.sh && ./installers/install_warp-transducer.sh
 	touch warp-transducer.done
 
-chainer_ctc.done: chainer.done
-	. ./activate_python.sh && ./installers/install_chainer_ctc.sh
+chainer_ctc.done: espnet.done
+	rm -rf chainer_ctc
+	git clone https://github.com/jheymann85/chainer_ctc.git
+	. venv/bin/activate; pip install cython
+	. venv/bin/activate; cd chainer_ctc && chmod +x install_warp-ctc.sh && ./install_*
+	. venv/bin/activate; cd chainer_ctc && pip install --user -e .
 	touch chainer_ctc.done
 
 nkf.done:
