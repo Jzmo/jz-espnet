@@ -70,7 +70,7 @@ elif "${torch_11_plus}"; then
     if [ -z "${cuda_version}" ]; then
         python3 -m pip install warpctc-pytorch==${warpctc_version}+torch"${torch_version}".cpu
     else
-        python3 -m pip install warpctc-pytorch==${warpctc_version}+torch"${torch_version}".cuda"${cuda_version}"
+        python3 -m pip install warpctc-pytorch==${warpctc_version}+torch"${torch_version}".cuda"${cuda_version}" --user
     fi
 
 elif "${torch_10_plus}"; then

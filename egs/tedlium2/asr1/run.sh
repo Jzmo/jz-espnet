@@ -8,20 +8,20 @@
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
+stage=5       # start from -1 if you need to start from data download
 stop_stage=5
-ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
-verbose=0      # verbose option
+verbose=1      # verbose option
 resume=        # Resume the training from snapshot
 
 # feature configuration
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_ltransformer_window15.yaml
+train_config=conf/tuning/train_pytorch_ltransformer_window15_0.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -158,19 +158,20 @@ fi
 expdir=exp/${expname}
 mkdir -p ${expdir}
 
+if [ -z ${lmtag} ]; then
+    lmtag=$(basename ${lm_config%.*})
+fi
+lmexpname=train_rnnlm_${backend}_${lmtag}_${bpemode}${nbpe}
+lmexpdir=exp/${lmexpname}
+mkdir -p ${lmexpdir}
+
+lmdatadir=data/local/lm_train_${bpemode}${nbpe}
+
 # It takes a few days. If you just want to end-to-end ASR without LM,
 # you can skip this by setting skip_lm_training=true
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ] && ! ${skip_lm_training}; then
     echo "stage 3: LM Preparation"
 
-    if [ -z ${lmtag} ]; then
-        lmtag=$(basename ${lm_config%.*})
-    fi
-    lmexpname=train_rnnlm_${backend}_${lmtag}_${bpemode}${nbpe}
-    lmexpdir=exp/${lmexpname}
-    mkdir -p ${lmexpdir}
-
-    lmdatadir=data/local/lm_train_${bpemode}${nbpe}
     [ ! -e ${lmdatadir} ] && mkdir -p ${lmdatadir}
     gunzip -c db/TEDLIUM_release2/LM/*.en.gz | sed 's/ <\/s>//g' | local/join_suffix.py |\
 	spm_encode --model=${bpemodel}.model --output_format=piece > ${lmdatadir}/train.txt

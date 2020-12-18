@@ -8,9 +8,9 @@
 
 # general configuration
 backend=pytorch
-stage=0        # start from 0 if you need to start from data preparation
-stop_stage=100
-ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
+stage=4        # start from 0 if you need to start from data preparation
+stop_stage=5
+ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train.yaml
+train_config=conf/tunig/train_pytorch_ltransformer_window15.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -37,7 +37,7 @@ recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.bes
 n_average=10
 
 # data
-data=/export/a05/xna/data
+data=~/data/aishell/
 data_url=www.openslr.org/resources/33
 
 # exp tag
