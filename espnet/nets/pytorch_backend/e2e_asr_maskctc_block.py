@@ -18,15 +18,19 @@ import numpy
 import torch
 
 from espnet.nets.pytorch_backend.transformer.encoder_xl import EncoderXL as Encoder
+from espnet.nets.pytorch_backend.conformer.argument import (
+    add_arguments_conformer_common,  # noqa: H301
+)
 from espnet.nets.pytorch_backend.e2e_asr import CTC_LOSS_THRESHOLD
 from espnet.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
+from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
 from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform
 from espnet.nets.pytorch_backend.maskctc.mask import square_mask
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
 from espnet.nets.pytorch_backend.nets_utils import th_accuracy
 
 
-class E2E(E2EMaskctc):
+class E2E(E2ETransformer):
     """E2E module.
 
     :param int idim: dimension of inputs
@@ -38,9 +42,24 @@ class E2E(E2EMaskctc):
     @staticmethod
     def add_arguments(parser):
         """Add arguments."""
-        E2EMaskctc.add_arguments(parser)
+        E2ETransformer.add_arguments(parser)
+        E2E.add_maskctc_arguments(parser)
         E2E.add_block_attention_arguments(parser)
         
+        return parser
+
+    @staticmethod
+    def add_maskctc_arguments(parser):
+        """Add arguments for maskctc model."""
+        group = parser.add_argument_group("maskctc specific setting")
+
+        group.add_argument(
+            "--maskctc-use-conformer-encoder",
+            default=False,
+            type=strtobool,
+        )
+        group = add_arguments_conformer_common(group)
+
         return parser
 
     @staticmethod
@@ -68,7 +87,7 @@ class E2E(E2EMaskctc):
         self.mask_token = odim - 1
         self.sos = odim - 2
         self.eos = odim - 2
-        # <mask>
+        # <mask token>
         self.odim = odim + 1
 
         self.encoder = Encoder(
@@ -114,7 +133,6 @@ class E2E(E2EMaskctc):
         ys_in_pad, ys_out_pad = mask_uniform(
             ys_pad, self.mask_token, self.eos, self.ignore_id
         )
-
         ys_mask = square_mask(ys_in_pad, self.eos)
         pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
         self.pred_pad = pred_pad
