@@ -247,7 +247,7 @@ class Decoder(BatchScorerInterface, torch.nn.Module):
             self.output_layer = torch.nn.Linear(attention_dim, odim)
         else:
             self.output_layer = None
-
+            
     def forward(self, tgt, tgt_mask, memory, memory_mask):
         """Forward decoder.
 
@@ -306,14 +306,12 @@ class Decoder(BatchScorerInterface, torch.nn.Module):
                 x, tgt_mask, memory, None, cache=c
             )
             new_cache.append(x)
-
         if self.normalize_before:
             y = self.after_norm(x[:, -1])
         else:
             y = x[:, -1]
         if self.output_layer is not None:
             y = torch.log_softmax(self.output_layer(y), dim=-1)
-
         return y, new_cache
 
     # beam search API (see ScorerInterface)

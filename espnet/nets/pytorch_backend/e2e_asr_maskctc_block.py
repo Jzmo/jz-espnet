@@ -17,10 +17,9 @@ from distutils.util import strtobool
 import numpy
 import torch
 
-from espnet.nets.pytorch_backend.transformer.encoder_block import Encoder
+from espnet.nets.pytorch_backend.transformer.encoder_xl import EncoderXL as Encoder
 from espnet.nets.pytorch_backend.e2e_asr import CTC_LOSS_THRESHOLD
-from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
-from espent.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
+from espnet.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
 from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform
 from espnet.nets.pytorch_backend.maskctc.mask import square_mask
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
@@ -39,8 +38,8 @@ class E2E(E2EMaskctc):
     @staticmethod
     def add_arguments(parser):
         """Add arguments."""
-        E2EMaskctc.add_maskctc_arguments(parser)
-        E2E.add_block_attention_argument(parser)
+        E2EMaskctc.add_arguments(parser)
+        E2E.add_block_attention_arguments(parser)
         
         return parser
 
@@ -53,7 +52,6 @@ class E2E(E2EMaskctc):
             "--block-length",
             default=32, type=int,
             help='Number of encoder layers (for shared recognition part in multi-speaker asr mode)')
-        )
         
         return parser
 
@@ -64,15 +62,14 @@ class E2E(E2EMaskctc):
         :param int odim: dimension of outputs
         :param Namespace args: argument Namespace containing options
         """
-        odim += 1  # for the mask token
-
         super().__init__(idim, odim, args, ignore_id)
         assert 0.0 <= self.mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
 
         self.mask_token = odim - 1
         self.sos = odim - 2
         self.eos = odim - 2
-        self.odim = odim
+        # <mask>
+        self.odim = odim + 1
 
         self.encoder = Encoder(
             idim=idim,
@@ -110,13 +107,14 @@ class E2E(E2EMaskctc):
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
         src_mask = make_non_pad_mask(ilens.tolist()).to(xs_pad.device).unsqueeze(-2)
-        hs_pad, hs_mask = self.encoder(xs_pad, src_mask)
+        hs_pad, hs_mask, _, _, bl = self.encoder(xs_pad, src_mask, None, None)
         self.hs_pad = hs_pad
 
         # 2. forward decoder
         ys_in_pad, ys_out_pad = mask_uniform(
             ys_pad, self.mask_token, self.eos, self.ignore_id
         )
+
         ys_mask = square_mask(ys_in_pad, self.eos)
         pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
         self.pred_pad = pred_pad
@@ -188,36 +186,38 @@ class E2E(E2EMaskctc):
 
         self.eval()
         # h = self.encode(x).unsqueeze(0)
-        block_len = recog_args.xl_decode_block_length
-        chuck_len = recog_args.xl_decode_chuck_length
-        block_accum = 4
-        decode_mode = recog_args.block_decode_mode
-        max_input_len = recog_args.block_max_input_length
-        K = recog_args.maskctc_n_iterations
-        if decode_mode == "streaming ctc":
+        # block_len = recog_args.xl_decode_block_length
+        block_len = 32
+        # chuck_len = recog_args.xl_decode_chuck_length
+        chuck_len = 2
+        subsample = 4
+        # decode_mode = recog_args.block_decode_mode
+        decode_mode = "streaming_ctc"
+        max_input_len = recog_args.maxlen_in
+        chuck_len = min(chuck_len, max_input_len//block_len//subsample)
+        if decode_mode == "streaming_ctc":
             x = x[:x.size(0)//12 * 12, :]
-            hs_pad = torch.zeros(x.size(0)//block_accum, self.adim, dtyep=x.dtype).unsqueeze(0)
-            logging.info("length length//{block_accum} {} {}".format(x.size(0), x.size(0)//block_accum))
+            hs_pad = torch.zeros(x.size(0)//subsample, self.adim, dtyep=x.dtype).unsqueeze(0)
+            logging.info("length length//{subsample} {} {}".format(x.size(0), x.size(0)//subsample))
 
             hyp_new = [self.sos]
             t_hs_pad = hs_pad.clone()
             t0 = 0
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
-                if (t+1) % (block_len * chuck_len * block_accum) == 0 or x.size(0) - t - 1 <= block_len *chuck_len * accum:
-                    if x.size(0) - t - 1 <= block_len *chuck_len * accum:
+                if (t+1) % (block_len * chuck_len * subsample) == 0 or x.size(0) - t - 1 <= block_len *chuck_len * subsample:
+                    if x.size(0) - t - 1 <= block_len *chuck_len * subsample:
                         t = x.size(0) - 1
                     logging.info("chunking feat {} {} {}".format(t0, t+1, x[t0:t+1, :].size()))
-                    if t0 > block_len * block_accum:
+                    if t0 > block_len * subsample:
                         # after first block
-                        # should be change to [:, block_len*4, :]?
-                        h_pad[:, t0//block_accum:t//block_accum, :] = self.encoder(x[t0-block_len*block_accum:t+1, :].unsqueeze(0), None, ys)[0][:, block_len:, :]
+                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0-block_len*subsample:t+1, :].unsqueeze(0), None, None, None, None)[0][:, block_len:, :]
                     else:
-                        h_pad[:, t0//block_accum:t//block_accum, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, ys)[0]
-                    t0 = t+1
+                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, None, None, None)[0]
                     # greedy ctc output
-                    st = max(0, t//block_accum - max_len)
-                    ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, st:t//block_accum, :])).max(dim=-1)
+                    st = max(t0//subsample, t//subsample - max_len)
+                    t0 = t+1
+                    ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, st:t//subsample, :])).max(dim=-1)
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
                     y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
 
