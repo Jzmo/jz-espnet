@@ -4,7 +4,7 @@ elayers: 12
 eunits: 2048
 # decoder related
 dlayers: 6
-dunits: 1024
+dunits: 2048
 # attention related
 adim: 256
 aheads: 4
@@ -31,7 +31,7 @@ dropout-rate: 0.1
 
 # transformer specific setting
 backend: pytorch
-model-module: "espnet.nets.pytorch_backend.e2e_asr_maskctc_block:E2E"
+model-module: "espnet.nets.pytorch_backend.e2e_asr_maskctc:E2E"
 transformer-input-layer: conv2d     # encoder architecture type
 transformer-lr: 5.0
 transformer-warmup-steps: 25000
@@ -39,19 +39,11 @@ transformer-attn-dropout-rate: 0.0
 transformer-length-normalized-loss: false
 transformer-init: pytorch
 
-# conformer specific setting
-use-cnn-module: false
-transformer-encoder-pos-enc-layer-type: rel_pos
-transformer-encoder-selfattn-layer-type: rel_selfattn
-transformer-encoder-activation-type: swish
-macaron-style: false
-
 # Report CER & WER
 report-cer: true
 report-wer: true
 
 n-iter-processes: 2
-block-length: 32
 
 ### important configurations to specify in run.sh
 # skip_lm_training=true
