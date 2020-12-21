@@ -20,9 +20,9 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train_pytorch_transformer.v1.yaml
+train_config=conf/train_block_attention_debug.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/decode_pytorch_transformer.yaml
+decode_config=conf/decode_block_attention_debug.yaml
 
 # rnnlm related
 use_wordlm=true     # false means to train/use a character LM
