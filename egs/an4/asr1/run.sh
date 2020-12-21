@@ -10,7 +10,7 @@
 backend=pytorch
 stage=4      # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=0         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -20,9 +20,9 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train_block_attention_debug.yaml
+train_config=conf/train_pytorch_transformer.v1.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/decode_block_attention_debug.yaml
+decode_config=conf/decode_pytorch_transformer.yaml
 
 # rnnlm related
 use_wordlm=true     # false means to train/use a character LM

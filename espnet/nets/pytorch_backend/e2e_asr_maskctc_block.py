@@ -184,6 +184,7 @@ class E2E(E2EMaskctc):
 
         n2s = num2str(char_list, self.mask_token)
 
+        x = torch.as_tensor(x)
         self.eval()
         # h = self.encode(x).unsqueeze(0)
         # block_len = recog_args.xl_decode_block_length
@@ -193,29 +194,27 @@ class E2E(E2EMaskctc):
         subsample = 4
         # decode_mode = recog_args.block_decode_mode
         decode_mode = "streaming_ctc"
-        max_input_len = recog_args.maxlen_in
+        max_input_len = 512 # args.maxlen_in
         chuck_len = min(chuck_len, max_input_len//block_len//subsample)
         if decode_mode == "streaming_ctc":
             x = x[:x.size(0)//12 * 12, :]
-            hs_pad = torch.zeros(x.size(0)//subsample, self.adim, dtyep=x.dtype).unsqueeze(0)
-            logging.info("length length//{subsample} {} {}".format(x.size(0), x.size(0)//subsample))
+            hs_pad = torch.zeros(x.size(0)//subsample, self.adim, dtype=x.dtype).unsqueeze(0)
+            logging.info("length length//4 {} {}".format(x.size(0), x.size(0)//subsample))
 
             hyp_new = [self.sos]
-            t_hs_pad = hs_pad.clone()
+            h_pad = hs_pad.clone()
             t0 = 0
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
-                if (t+1) % (block_len * chuck_len * subsample) == 0 or x.size(0) - t - 1 <= block_len *chuck_len * subsample:
-                    if x.size(0) - t - 1 <= block_len *chuck_len * subsample:
-                        t = x.size(0) - 1
+                if (t+1) % (block_len * chuck_len * subsample) == 0 or t == x.size(0) - 1:
                     logging.info("chunking feat {} {} {}".format(t0, t+1, x[t0:t+1, :].size()))
                     if t0 > block_len * subsample:
                         # after first block
-                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0-block_len*subsample:t+1, :].unsqueeze(0), None, None, None, None)[0][:, block_len:, :]
+                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0-block_len*subsample:t+1, :].unsqueeze(0), None, None, None)[0][:, block_len:, :]
                     else:
-                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, None, None, None)[0]
+                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, None, None)[0]
                     # greedy ctc output
-                    st = max(t0//subsample, t//subsample - max_len)
+                    st = max(t0//subsample, t//subsample - max_input_len)
                     t0 = t+1
                     ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, st:t//subsample, :])).max(dim=-1)
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
@@ -227,10 +226,10 @@ class E2E(E2EMaskctc):
                     probs_hat = []
                     cnt = 0
                     for i, y in enumerate(y_hat.tolist()):
-                        probs_had.append(-1)
-                        while cnt < ctc.ids_shape[1] and y == ctc_ids[0][cnt]:
+                        probs_hat.append(-1)
+                        while cnt < ctc_ids.shape[1] and y == ctc_ids[0][cnt]:
                             if probs_hat[i] < ctc_probs[0][cnt]:
-                                probs_hat[i] = cc.probs[0][cnt].item()
+                                probs_hat[i] = ctc_probs[0][cnt].item()
                             cnt += 1
                     probs_hat = torch.from_numpy(numpy.array(probs_hat))
 
@@ -249,7 +248,7 @@ class E2E(E2EMaskctc):
                         num_iter = K if mask_num >= K and K > 0 else mask_num
                     
                         for t in range(num_iter - 1):
-                            pred, _ = self.decoder(y_in, None, h, None)
+                            pred, _ = self.decoder(y_in, None, h_pad, None)
                             pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
                             cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
                             y_in[0][mask_idx[cand]] = pred_id[cand]
@@ -258,7 +257,7 @@ class E2E(E2EMaskctc):
                             logging.info("msk:{}".format(n2s(y_in[0].tolist())))
                             
                             # predict leftover masks (|masks| < mask_num // num_iter)
-                        pred, pred_mask = self.decoder(y_in, None, h, None)
+                        pred, pred_mask = self.decoder(y_in, None, h_pad, None)
                         y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
                                                                                                                         
                         logging.info("msk:{}".format(n2s(y_in[0].tolist())))
