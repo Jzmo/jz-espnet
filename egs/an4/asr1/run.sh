@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=0       # start from -1 if you need to start from data download
+stage=4       # start from -1 if you need to start from data download
 stop_stage=100
 ngpu=0         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -20,7 +20,7 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/train_mtlalpha1.0.yaml
+train_config=conf/train_pytorch_convbert.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode_ctcweight1.0.yaml
 

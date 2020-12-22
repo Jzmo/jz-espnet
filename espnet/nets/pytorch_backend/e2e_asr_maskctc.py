@@ -114,7 +114,8 @@ class E2E(E2ETransformer):
         """
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
-        src_mask = make_non_pad_mask(ilens.tolist()).to(xs_pad.device).unsqueeze(-2)
+        src_mask = make_non_pad_mask(ilens.tolist()).to(
+            xs_pad.device).unsqueeze(-2)
         hs_pad, hs_mask = self.encoder(xs_pad, src_mask)
         self.hs_pad = hs_pad
 
@@ -137,10 +138,13 @@ class E2E(E2ETransformer):
         if self.mtlalpha > 0:
             batch_size = xs_pad.size(0)
             hs_len = hs_mask.view(batch_size, -1).sum(1)
-            loss_ctc = self.ctc(hs_pad.view(batch_size, -1, self.adim), hs_len, ys_pad)
+            loss_ctc = self.ctc(hs_pad.view(
+                batch_size, -1, self.adim), hs_len, ys_pad)
             if self.error_calculator is not None:
-                ys_hat = self.ctc.argmax(hs_pad.view(batch_size, -1, self.adim)).data
-                cer_ctc = self.error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+                ys_hat = self.ctc.argmax(hs_pad.view(
+                    batch_size, -1, self.adim)).data
+                cer_ctc = self.error_calculator(
+                    ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
             # for visualization
             if not self.training:
                 self.ctc.softmax(hs_pad)

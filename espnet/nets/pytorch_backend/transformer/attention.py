@@ -51,6 +51,7 @@ class MultiHeadedAttention(nn.Module):
             torch.Tensor: Transformed value tensor (#batch, n_head, time2, d_k).
 
         """
+
         n_batch = query.size(0)
         q = self.linear_q(query).view(n_batch, -1, self.h, self.d_k)
         k = self.linear_k(key).view(n_batch, -1, self.h, self.d_k)
@@ -78,14 +79,16 @@ class MultiHeadedAttention(nn.Module):
         if mask is not None:
             mask = mask.unsqueeze(1).eq(0)  # (batch, 1, *, time2)
             min_value = float(
-                numpy.finfo(torch.tensor(0, dtype=scores.dtype).numpy().dtype).min
+                numpy.finfo(torch.tensor(
+                    0, dtype=scores.dtype).numpy().dtype).min
             )
             scores = scores.masked_fill(mask, min_value)
             self.attn = torch.softmax(scores, dim=-1).masked_fill(
                 mask, 0.0
             )  # (batch, head, time1, time2)
         else:
-            self.attn = torch.softmax(scores, dim=-1)  # (batch, head, time1, time2)
+            # (batch, head, time1, time2)
+            self.attn = torch.softmax(scores, dim=-1)
 
         p_attn = self.dropout(self.attn)
         x = torch.matmul(p_attn, value)  # (batch, head, time1, d_k)
@@ -149,7 +152,8 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
             torch.Tensor: Output tensor.
 
         """
-        zero_pad = torch.zeros((*x.size()[:3], 1), device=x.device, dtype=x.dtype)
+        zero_pad = torch.zeros(
+            (*x.size()[:3], 1), device=x.device, dtype=x.dtype)
         x_padded = torch.cat([zero_pad, x], dim=-1)
 
         x_padded = x_padded.view(*x.size()[:2], x.size(3) + 1, x.size(2))
