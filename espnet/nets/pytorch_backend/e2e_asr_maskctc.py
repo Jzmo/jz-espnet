@@ -118,6 +118,7 @@ class E2E(E2ETransformer):
         hs_pad, hs_mask = self.encoder(xs_pad, src_mask)
         self.hs_pad = hs_pad
 
+
         # 2. forward decoder
         ys_in_pad, ys_out_pad = mask_uniform(
             ys_pad, self.mask_token, self.eos, self.ignore_id
@@ -128,10 +129,10 @@ class E2E(E2ETransformer):
 
         # 3. compute attention loss
         loss_att = self.criterion(pred_pad, ys_out_pad)
+
         self.acc = th_accuracy(
             pred_pad.view(-1, self.odim), ys_out_pad, ignore_label=self.ignore_id
         )
-
         # 4. compute ctc loss
         loss_ctc, cer_ctc = None, None
         if self.mtlalpha > 0:
