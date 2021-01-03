@@ -190,7 +190,7 @@ class E2E(E2EMaskctc):
         # block_len = recog_args.xl_decode_block_length
         block_len = 32
         # chuck_len = recog_args.xl_decode_chuck_length
-        chuck_len = 2
+        chuck_len = 1
         subsample = 4
         # decode_mode = recog_args.block_decode_mode
         decode_mode = "streaming_ctc"
@@ -207,6 +207,9 @@ class E2E(E2EMaskctc):
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
                 if (t+1) % (block_len * chuck_len * subsample) == 0 or t == x.size(0) - 1:
+                    st = 0, t - max_input_len, 
+                    et = t, x.size(0)-1
+                    logging.info("start and end point {} {} ".format(st, et))
                     logging.info("chunking feat {} {} {}".format(t0, t+1, x[t0:t+1, :].size()))
                     if t0 > block_len * subsample:
                         # after first block
@@ -214,8 +217,9 @@ class E2E(E2EMaskctc):
                     else:
                         h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, None, None)[0]
                     # greedy ctc output
-                    st = max(t0//subsample, t//subsample - max_input_len)
+                    st = min(t0//subsample, max(0, (t-max_input_len)//subsample))
                     t0 = t+1
+                    #logging.info("start and end point: {} {} {}".format(st, t0, x.size(0)))
                     ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, st:t//subsample, :])).max(dim=-1)
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
                     y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
