@@ -88,7 +88,7 @@ class E2E(E2ETransformer):
         self.sos = odim - 2
         self.eos = odim - 2
         # <mask token>
-        self.odim = odim + 1
+        #self.odim = odim + 1
 
         self.encoder = Encoder(
             idim=idim,
@@ -214,6 +214,7 @@ class E2E(E2ETransformer):
         decode_mode = "streaming_ctc"
         max_input_len = 512 # args.maxlen_in
         chuck_len = min(chuck_len, max_input_len//block_len//subsample)
+        logging.info("self.odim is {}".format(self.odim))
         if decode_mode == "streaming_ctc":
             x = x[:x.size(0)//12 * 12, :]
             hs_pad = torch.zeros(x.size(0)//subsample, self.adim, dtype=x.dtype).unsqueeze(0)
@@ -222,6 +223,7 @@ class E2E(E2ETransformer):
             hyp_new = [self.sos]
             h_pad = hs_pad.clone()
             t0 = 0
+            ret = []
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
                 if (t+1) % (block_len * chuck_len * subsample) == 0 or t == x.size(0) - 1:
@@ -232,12 +234,11 @@ class E2E(E2ETransformer):
                     else:
                         h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, None, None)[0]
                     # greedy ctc output
-                    st = max(t0//subsample, t//subsample - max_input_len)
-                    t0 = t+1
-                    ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, st:t//subsample, :])).max(dim=-1)
+                    logging.info("intervel: {}, {}".format(t0//subsample, t//subsample))
+                    ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, t0//subsample:t//subsample, :])).max(dim=-1)
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
                     y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
-
+                    t0 = t+1
                     # calculate token-level ctc probability by taking
                     # the maximum probablity of consecutive frame with
                     # the same ctc symbols
@@ -279,11 +280,11 @@ class E2E(E2ETransformer):
                         y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
                                                                                                                         
                         logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-                
-                    ret = y_in.tolist()[0]
-                    ys = [self.sos] + ret
+                        
+                    ret += y_in.tolist()[0]
                 if t == x.size(0) - 1:
                     break
+            ys = [self.sos] + ret
 
             # todo:
             # when reach some point, get ctc output and iteratively refine with decoder

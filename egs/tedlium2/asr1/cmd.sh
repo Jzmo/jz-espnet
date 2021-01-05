@@ -28,7 +28,7 @@
 
 
 # Select the backend used by run.sh from "local", "sge", "slurm", or "ssh"
-cmd_backend='local'
+cmd_backend='slurm'
 
 # Local machine, without any Job scheduling system
 if [ "${cmd_backend}" = local ]; then
@@ -61,7 +61,7 @@ elif [ "${cmd_backend}" = slurm ]; then
 
     export train_cmd="slurm.pl"
     export cuda_cmd="slurm.pl"
-    export decode_cmd="slurm.pl"
+    export decode_cmd="slurm.pl --time 1:0:0 --config conf/slurm.conf"
 
 elif [ "${cmd_backend}" = ssh ]; then
     # You have to create ".queue/machines" to specify the host to execute jobs.

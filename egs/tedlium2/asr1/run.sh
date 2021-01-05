@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
+stage=5       # start from -1 if you need to start from data download
 stop_stage=100
 ngpu=2         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -26,7 +26,7 @@ lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc.yaml
 
 # rnnlm related
-skip_lm_training=false   # for only using end-to-end ASR model without LM
+skip_lm_training=true   # for only using end-to-end ASR model without LM
 lm_resume=              # specify a snapshot file to resume LM training
 lmtag=                  # tag for managing LMs
 
@@ -35,7 +35,7 @@ recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.bes
 
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
-use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
+use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
                              # if false, the last `n_average` ASR models will be averaged.
 
 # bpemode (unigram or bpe)
@@ -212,7 +212,7 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=32
+    nj=4
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *maskctc* ]] || \
@@ -233,8 +233,8 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     fi
 
     pids=() # initialize pids
-    for rtask in ${recog_set}; do
-    (
+    for rtask in dev; do #${recog_set}; do
+	(
         recog_opts=
         if ${skip_lm_training}; then
             if [ -z ${lmtag} ]; then

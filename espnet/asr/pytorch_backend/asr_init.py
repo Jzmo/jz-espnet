@@ -178,6 +178,7 @@ def load_trained_model(model_path):
 
     model_class = dynamic_import(model_module)
     model = model_class(idim, odim, train_args)
+    logging.info("odim {},".format(odim))
 
     torch_load(model_path, model)
 
