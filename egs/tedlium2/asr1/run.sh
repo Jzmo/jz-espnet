@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc.yaml
 
@@ -189,6 +189,9 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ] && ! ${skip_lm_training}; then
         --resume ${lm_resume} \
         --dict ${dict}
 fi
+
+lmexpname=train_rnnlm_${backend}_${bpemode}${nbpe}
+lmexpdir=exp/${lmexpname}
 
 if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
     echo "stage 4: Network Training"
