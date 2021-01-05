@@ -8,7 +8,7 @@
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
+stage=5       # start from -1 if you need to start from data download
 stop_stage=100
 ngpu=0         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -22,7 +22,7 @@ do_delta=false
 
 train_config=conf/train_pytorch_convbert.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/decode_ctcweight1.0.yaml
+decode_config=conf/decode_ctcweight0.5.yaml
 
 # rnnlm related
 use_wordlm=true     # false means to train/use a character LM
