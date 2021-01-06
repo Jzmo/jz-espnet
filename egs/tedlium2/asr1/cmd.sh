@@ -38,7 +38,7 @@ if [ "${cmd_backend}" = local ]; then
     # Used for "*_train.py": "--gpu" is appended optionally by run.sh
     export cuda_cmd="run.pl"
     # Used for "*_recog.py"
-    export decode_cmd="run.pl --time 0:15:0"
+    export decode_cmd="run.pl"
 
 # "qsub" (SGE, Torque, PBS, etc.)
 elif [ "${cmd_backend}" = sge ]; then

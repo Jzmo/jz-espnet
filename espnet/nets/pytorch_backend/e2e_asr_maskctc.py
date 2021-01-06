@@ -245,7 +245,7 @@ class E2E(E2ETransformer):
             logging.info("msk:{}".format(n2s(y_in[0].tolist())))
 
         ret = y_in.tolist()[0]
-        ret = y_hat[y_idx].tolist()
+        #ret = y_hat[y_idx].tolist()
         hyp = {"score": 0.0, "yseq": [self.sos] + ret + [self.eos]}
 
         return [hyp]
