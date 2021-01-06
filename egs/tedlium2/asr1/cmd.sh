@@ -28,7 +28,7 @@
 
 
 # Select the backend used by run.sh from "local", "sge", "slurm", or "ssh"
-cmd_backend='slurm'
+cmd_backend='local'
 
 # Local machine, without any Job scheduling system
 if [ "${cmd_backend}" = local ]; then
@@ -38,7 +38,7 @@ if [ "${cmd_backend}" = local ]; then
     # Used for "*_train.py": "--gpu" is appended optionally by run.sh
     export cuda_cmd="run.pl"
     # Used for "*_recog.py"
-    export decode_cmd="run.pl"
+    export decode_cmd="run.pl --time 0:15:0"
 
 # "qsub" (SGE, Torque, PBS, etc.)
 elif [ "${cmd_backend}" = sge ]; then
@@ -60,7 +60,7 @@ elif [ "${cmd_backend}" = slurm ]; then
     # The devices are allocated exclusively using "${CUDA_VISIBLE_DEVICES}".
 
     export train_cmd="slurm.pl"
-    export cuda_cmd="slurm.pl"
+    export cuda_cmd="slurm.pl --num_threads 2 --config conf/slurm_gpu.conf"
     export decode_cmd="slurm.pl --time 1:0:0 --config conf/slurm.conf"
 
 elif [ "${cmd_backend}" = ssh ]; then

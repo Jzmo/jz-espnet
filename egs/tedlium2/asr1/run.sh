@@ -10,7 +10,7 @@
 backend=pytorch
 stage=5       # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=2         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc.yaml
 
@@ -34,8 +34,8 @@ lmtag=                  # tag for managing LMs
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
 
 # model average realted (only for transformer)
-n_average=10                 # the number of ASR models to be averaged
-use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
+n_average=1                 # the number of ASR models to be averaged
+use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
                              # if false, the last `n_average` ASR models will be averaged.
 
 # bpemode (unigram or bpe)
