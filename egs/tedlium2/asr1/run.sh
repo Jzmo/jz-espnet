@@ -8,9 +8,9 @@
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
+stage=5      # start from -1 if you need to start from data download
 stop_stage=100
-ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=4        # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -28,14 +28,14 @@ decode_config=conf/decode.yaml
 # rnnlm related
 skip_lm_training=false   # for only using end-to-end ASR model without LM
 lm_resume=              # specify a snapshot file to resume LM training
-lmtag=                  # tag for managing LMs
+lmtag=lm                  # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
 
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
-use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
+use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
                              # if false, the last `n_average` ASR models will be averaged.
 
 # bpemode (unigram or bpe)
@@ -158,6 +158,12 @@ fi
 expdir=exp/${expname}
 mkdir -p ${expdir}
 
+
+lmexpname=train_rnnlm_${backend}_${lmtag}_${bpemode}${nbpe}
+lmexpdir=exp/${lmexpname}
+mkdir -p ${lmexpdir}
+
+echo $lmexpdir
 # It takes a few days. If you just want to end-to-end ASR without LM,
 # you can skip this by setting skip_lm_training=true
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ] && ! ${skip_lm_training}; then
@@ -166,9 +172,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ] && ! ${skip_lm_training}; then
     if [ -z ${lmtag} ]; then
         lmtag=$(basename ${lm_config%.*})
     fi
-    lmexpname=train_rnnlm_${backend}_${lmtag}_${bpemode}${nbpe}
-    lmexpdir=exp/${lmexpname}
-    mkdir -p ${lmexpdir}
+    
 
     lmdatadir=data/local/lm_train_${bpemode}${nbpe}
     [ ! -e ${lmdatadir} ] && mkdir -p ${lmdatadir}
@@ -212,8 +216,9 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=32
-    if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
+    nj=6
+    if [[ $(get_yaml.py ${train_config} model-module) = *convbert* ]] || \
+       [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *maskctc* ]] || \
        [[ $(get_yaml.py ${train_config} etype) = transformer ]] || \
@@ -233,7 +238,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     fi
 
     pids=() # initialize pids
-    for rtask in ${recog_set}; do
+    for rtask in dev; do #${recog_set}; do
     (
         recog_opts=
         if ${skip_lm_training}; then

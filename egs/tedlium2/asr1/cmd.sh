@@ -82,7 +82,7 @@ elif [ "${cmd_backend}" = slurm ]; then
 
     export train_cmd="slurm.pl"
     export cuda_cmd="slurm.pl --num_threads 2 --mem 4G --config conf/slurm_gpu.conf"
-    export decode_cmd="slurm.pl"
+    export decode_cmd="slurm.pl --config conf/slurm.conf"
 
 elif [ "${cmd_backend}" = ssh ]; then
     # You have to create ".queue/machines" to specify the host to execute jobs.
