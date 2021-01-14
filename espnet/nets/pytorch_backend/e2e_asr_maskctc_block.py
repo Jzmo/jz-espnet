@@ -85,9 +85,9 @@ class E2E(E2ETransformer):
         logging.info("odim {}".format(odim))
         super().__init__(idim, odim, args, ignore_id)
         assert 0.0 <= self.mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
-        self.mask_token = odim - 1
-        self.sos = odim - 2
-        self.eos = odim - 2
+        self.mask_token = odim - 2
+        self.sos = odim - 3
+        self.eos = odim - 3
         # <mask token>
         
 
@@ -136,6 +136,9 @@ class E2E(E2ETransformer):
         )
         ys_mask = square_mask(ys_in_pad, self.eos)
         pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
+        #logging.info("ys_in_pad:{}".format(ys_in_pad[0:3]))
+        #logging.info("pred_pad:{}".format(pred_pad[0:3].argmax(dim=-1)))
+        #logging.info("ys_out_pad:{}".format(ys_out_pad[0:3]))
         self.pred_pad = pred_pad
 
         # 3. compute attention loss
@@ -143,6 +146,8 @@ class E2E(E2ETransformer):
         self.acc = th_accuracy(
             pred_pad.view(-1, self.odim), ys_out_pad, ignore_label=self.ignore_id
         )
+        logging.info("acc, loss_att:{}, {}".format(self.acc, loss_att))
+        #raise ValueError
 
         # 4. compute ctc loss
         loss_ctc, cer_ctc = None, None
@@ -330,7 +335,8 @@ class E2E(E2ETransformer):
                 y_in[0][mask_idx[cand]] = pred_id[cand]
                 mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
                 
-                #logging.info("msk:{}".format(n2s(y_in[0].tolist())))
+                logging.info("msk:{}".format(n2s(y_in[0].tolist())))
+                logging.info("mask_idx, pred:{}, {}".format(mask_idx, pred[0][mask_idx].argmax(dim=-1)))
                 
             # predict leftover masks (|masks| < mask_num // num_iter)
             pred, pred_mask = self.decoder(y_in, None, h, None)
@@ -340,7 +346,7 @@ class E2E(E2ETransformer):
             #logging.info("msk:{}".format(n2s(y_in[0].tolist())))
         
         ret = y_in.tolist()[0]
-        #ret = y_hat[y_idx].tolist()
+        ret = y_hat[y_idx].tolist()
         
         # todo:
         # when reach some point, get ctc output and iteratively refine with decoder

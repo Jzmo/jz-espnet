@@ -125,6 +125,9 @@ class E2E(E2ETransformer):
         )
         ys_mask = square_mask(ys_in_pad, self.eos)
         pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
+        logging.info("ys_in_pad:{}".format(ys_in_pad[0:3]))
+        logging.info("pred_pad:{}".format(pred_pad[0:3].argmax(dim=-1)))
+        raise ValueError
         self.pred_pad = pred_pad
 
         # 3. compute attention loss
@@ -230,6 +233,7 @@ class E2E(E2ETransformer):
             num_iter = K if mask_num >= K and K > 0 else mask_num
 
             for t in range(num_iter - 1):
+                
                 pred, _ = self.decoder(y_in, None, h, None)
                 pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
                 cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
@@ -237,9 +241,11 @@ class E2E(E2ETransformer):
                 mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
 
                 logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-
+                logging.info("mask_idx, pred:{}, {}".format(mask_idx, pred[0][mask_idx].argmax(dim=-1)))
+                
             # predict leftover masks (|masks| < mask_num // num_iter)
             pred, pred_mask = self.decoder(y_in, None, h, None)
+            logging.info("mask_idx, pred:{}, {}".format(mask_idx, pred[0][mask_idx].argmax(dim=-1)))
             y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
 
             logging.info("msk:{}".format(n2s(y_in[0].tolist())))
