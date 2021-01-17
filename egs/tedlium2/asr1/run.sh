@@ -23,7 +23,7 @@ do_delta=false
 preprocess_config=conf/specaug.yaml
 train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/tuning/decode_pytorch_transformer_maskctc.yaml
+decode_config=conf/tuning/decode_pytorch_transformer_maskctc_iter0.yaml
 
 # rnnlm related
 skip_lm_training=true   # for only using end-to-end ASR model without LM
@@ -35,7 +35,7 @@ recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.bes
 
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
-use_valbest_average=false     # if true, the validation `n_average`-best ASR models will be averaged.
+use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
                              # if false, the last `n_average` ASR models will be averaged.
 
 # bpemode (unigram or bpe)
@@ -215,7 +215,7 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=4
+    nj=32
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *maskctc* ]] || \
@@ -236,7 +236,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     fi
 
     pids=() # initialize pids
-    for rtask in test; do # ${recog_set}; do
+    for rtask in ${recog_set}; do
 	(
         recog_opts=
         if ${skip_lm_training}; then

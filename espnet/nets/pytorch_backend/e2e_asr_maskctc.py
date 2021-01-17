@@ -228,7 +228,7 @@ class E2E(E2ETransformer):
         logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
 
         # iterative decoding
-        if not mask_num == 0:
+        if not mask_num == 0 and recog_args.maskctc_n_iterations > 0:
             K = recog_args.maskctc_n_iterations
             num_iter = K if mask_num >= K and K > 0 else mask_num
 
@@ -249,6 +249,8 @@ class E2E(E2ETransformer):
             y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
 
             logging.info("msk:{}".format(n2s(y_in[0].tolist())))
+        else:
+            y_in[0] = y_hat[y_idx]
 
         ret = y_in.tolist()[0]
         #ret = y_hat[y_idx].tolist()
