@@ -9,7 +9,7 @@
 # general configuration
 backend=pytorch
 stage=5       # start from -1 if you need to start from data download
-stop_stage=100
+stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc_iter0.yaml
 
@@ -32,7 +32,7 @@ lmtag=                  # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-
+use_stearming=true
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
@@ -213,9 +213,14 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
         --valid-json ${feat_dt_dir}/data_${bpemode}${nbpe}.json
 fi
 
+if ${use_stearming}; then
+    recog_set="dev_unsegmented"
+fi
+
+
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=32
+    nj=1
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *maskctc* ]] || \
@@ -275,4 +280,39 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     i=0; for pid in "${pids[@]}"; do wait ${pid} || ((++i)); done
     [ ${i} -gt 0 ] && echo "$0: ${i} background jobs are failed." && false
     echo "Finished"
+fi
+
+if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
+    dir=data/
+    recog_set="dev test"
+    for task in ${recog_set}; do
+	task_new=${task}_unsegmented
+	mkdir -p ${dir}/${task_new}
+	cp ${dir}/${task}/wav.scp ${dir}/${task_new}
+	cat ${dir}/${task}/text | python ./local/conct.py > ${dir}/${task_new}/text
+	cat ${dir}/${task_new}/text | cut -f 1 | awk {'print $1"\t"$1'} > ${dir}/${task_new}/utt2spk
+	cp ${dir}/${task_new}/utt2spk ${dir}/${task_new}/spk2utt
+    done
+
+    fbankdir=fbank
+    for task in ${recog_set}; do
+	task_new=${task}_unsegmented
+	steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj 4 --write_utt2num_frames true\
+				  data/${task_new} exp/make_fbank/${task_new} ${fbankdir}
+	utils/fix_data_dir.sh data/${task_new}
+    done
+
+    for task in ${recog_set}; do
+	task_new=${task}_unsegmented
+	feat_recog_dir=${dumpdir}/${task_new}/delta${do_delta}; mkdir -p ${feat_recog_dir}
+	dump.sh --cmd ${train_cmd} --nj 4 --do_delta ${do_delta} \
+		data/${task_new}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${task_new} ${feat_recog_dir}
+    done
+
+    for task in ${recog_set}; do
+	task_new=${task}_unsegmented
+	feat_recog_dir=${dumpdir}/${task_new}/delta${do_delta}
+	data2json.sh --feat ${feat_recog_dir}/feats.scp \
+		     data/${task_new} ${dict} > ${feat_recog_dir}/data_${bpemode}${nbpe}.json
+    done
 fi
