@@ -16,6 +16,7 @@ import math
 from distutils.util import strtobool
 import numpy
 import torch
+import time
 
 from espnet.nets.pytorch_backend.transformer.encoder_xl import EncoderXL as Encoder
 from espnet.nets.pytorch_backend.conformer.argument import (
@@ -25,6 +26,7 @@ from espnet.nets.pytorch_backend.e2e_asr import CTC_LOSS_THRESHOLD
 from espnet.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
 from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
 from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform
+#from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform2 as mask_uniform
 from espnet.nets.pytorch_backend.maskctc.mask import square_mask
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
 from espnet.nets.pytorch_backend.nets_utils import th_accuracy
@@ -147,7 +149,6 @@ class E2E(E2ETransformer):
             pred_pad.view(-1, self.odim), ys_out_pad, ignore_label=self.ignore_id
         )
         logging.info("acc, loss_att:{}, {}".format(self.acc, loss_att))
-        #raise ValueError
 
         # 4. compute ctc loss
         loss_ctc, cer_ctc = None, None
@@ -168,7 +169,6 @@ class E2E(E2ETransformer):
         else:
             ys_hat = pred_pad.argmax(dim=-1)
             cer, wer = self.error_calculator(ys_hat.cpu(), ys_pad.cpu())
-
         alpha = self.mtlalpha
         if alpha == 0:
             self.loss = loss_att
@@ -178,7 +178,6 @@ class E2E(E2ETransformer):
             self.loss = alpha * loss_ctc + (1 - alpha) * loss_att
             loss_att_data = float(loss_att)
             loss_ctc_data = float(loss_ctc)
-
         loss_data = float(self.loss)
         if loss_data < CTC_LOSS_THRESHOLD and not math.isnan(loss_data):
             self.reporter.report(
