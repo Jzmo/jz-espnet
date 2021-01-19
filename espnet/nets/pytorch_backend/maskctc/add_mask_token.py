@@ -37,3 +37,24 @@ def mask_uniform(ys_pad, mask_token, eos, ignore_id):
         ys_out[i][idx] = ys[i][idx]
 
     return pad_list(ys_in, eos), pad_list(ys_out, ignore_id)
+
+def mask_uniform2(ys_pad, mask_token, eos, ignore_id):
+    ys_len = (ys_pad != ignore_id).sum(dim=-1).cpu().detach().numpy()
+    num_samples = numpy.random.randint(1, ys_len+1)
+    ys_out = ys_pad.new(ys_pad.size()).fill_(ignore_id)
+    ys_in = ys_pad.clone()
+    ys_in[ys_pad == ignore_id] = eos
+    '''
+    n_batch, idx = [], []
+    for i, y_len in enumerate(ys_len):
+        n_batch.append([i] * num_samples[i])
+        idx.append(numpy.random.choice(y_len, num_samples[i]))
+    n_batch = numpy.concatenate(n_batch)
+    idx = numpy.concatenate(idx)
+    '''
+    #ys_in[n_batch, idx] = mask_token
+    #ys_out[n_batch, idx] = ys_pad[n_batch, idx]
+    ys_in[:, :5] = mask_token
+    ys_out[:, :5] = ys_pad[:, :5]
+    
+    return ys_in, ys_out

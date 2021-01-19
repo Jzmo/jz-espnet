@@ -8,9 +8,9 @@
 
 # general configuration
 backend=pytorch
-stage=5       # start from -1 if you need to start from data download
-stop_stage=5
-ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
+stage=4       # start from -1 if you need to start from data download
+stop_stage=4
+ngpu=2         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc_block_debug.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc_iter0.yaml
 
