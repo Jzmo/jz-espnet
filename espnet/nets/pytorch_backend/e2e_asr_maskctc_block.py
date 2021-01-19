@@ -45,7 +45,7 @@ class E2E(E2ETransformer):
         E2ETransformer.add_arguments(parser)
         E2E.add_maskctc_arguments(parser)
         E2E.add_block_attention_arguments(parser)
-        
+
         return parser
 
     @staticmethod
@@ -71,7 +71,7 @@ class E2E(E2ETransformer):
             "--block-length",
             default=32, type=int,
             help='Number of encoder layers (for shared recognition part in multi-speaker asr mode)')
-        
+
         return parser
 
     def __init__(self, idim, odim, args, ignore_id=-1):
@@ -85,11 +85,10 @@ class E2E(E2ETransformer):
         logging.info("odim {}".format(odim))
         super().__init__(idim, odim, args, ignore_id)
         assert 0.0 <= self.mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
-        self.mask_token = odim - 2
+        self.mask_token = odim - 1
         self.sos = odim - 2
         self.eos = odim - 2
         # <mask token>
-        
 
         self.encoder = Encoder(
             idim=idim,
@@ -126,7 +125,8 @@ class E2E(E2ETransformer):
         """
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
-        src_mask = make_non_pad_mask(ilens.tolist()).to(xs_pad.device).unsqueeze(-2)
+        src_mask = make_non_pad_mask(ilens.tolist()).to(
+            xs_pad.device).unsqueeze(-2)
         hs_pad, hs_mask, _, _, bl = self.encoder(xs_pad, src_mask, None, None)
         self.hs_pad = hs_pad
 
@@ -136,9 +136,9 @@ class E2E(E2ETransformer):
         )
         ys_mask = square_mask(ys_in_pad, self.eos)
         pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
-        #logging.info("ys_in_pad:{}".format(ys_in_pad[0:3]))
-        #logging.info("pred_pad:{}".format(pred_pad[0:3].argmax(dim=-1)))
-        #logging.info("ys_out_pad:{}".format(ys_out_pad[0:3]))
+        # logging.info("ys_in_pad:{}".format(ys_in_pad[0:3]))
+        # logging.info("pred_pad:{}".format(pred_pad[0:3].argmax(dim=-1)))
+        # logging.info("ys_out_pad:{}".format(ys_out_pad[0:3]))
         self.pred_pad = pred_pad
 
         # 3. compute attention loss
@@ -154,10 +154,13 @@ class E2E(E2ETransformer):
         if self.mtlalpha > 0:
             batch_size = xs_pad.size(0)
             hs_len = hs_mask.view(batch_size, -1).sum(1)
-            loss_ctc = self.ctc(hs_pad.view(batch_size, -1, self.adim), hs_len, ys_pad)
+            loss_ctc = self.ctc(hs_pad.view(
+                batch_size, -1, self.adim), hs_len, ys_pad)
             if self.error_calculator is not None:
-                ys_hat = self.ctc.argmax(hs_pad.view(batch_size, -1, self.adim)).data
-                cer_ctc = self.error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+                ys_hat = self.ctc.argmax(hs_pad.view(
+                    batch_size, -1, self.adim)).data
+                cer_ctc = self.error_calculator(
+                    ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
             # for visualization
             if not self.training:
                 self.ctc.softmax(hs_pad)
@@ -293,7 +296,7 @@ class E2E(E2ETransformer):
                     break
         """
         h = self.encoder(x.unsqueeze(0), None, None, None)[0]
-        
+
         # greedy ctc outputs
         ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h)).max(dim=-1)
         y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
@@ -311,47 +314,49 @@ class E2E(E2ETransformer):
                     probs_hat[i] = ctc_probs[0][cnt].item()
                 cnt += 1
         probs_hat = torch.from_numpy(numpy.array(probs_hat))
-        
+
         # mask ctc outputs based on ctc probabilities
         p_thres = recog_args.maskctc_probability_threshold
         mask_idx = torch.nonzero(probs_hat[y_idx] < p_thres).squeeze(-1)
         confident_idx = torch.nonzero(probs_hat[y_idx] >= p_thres).squeeze(-1)
         mask_num = len(mask_idx)
-        
+
         y_in = torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
         y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
-        
-        #logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
-        
+
+        # logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
+
         # iterative decoding
         if not mask_num == 0 and recog_args.maskctc_n_iterations > 0:
             K = recog_args.maskctc_n_iterations
             num_iter = K if mask_num >= K and K > 0 else mask_num
-            
+
             for t in range(num_iter - 1):
                 pred, _ = self.decoder(y_in, None, h, None)
                 pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
                 cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
                 y_in[0][mask_idx[cand]] = pred_id[cand]
                 mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
-                
+
                 logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-                logging.info("mask_idx, pred:{}, {}".format(mask_idx, pred[0][mask_idx].argmax(dim=-1)))
-                
+                logging.info("mask_idx, pred:{}, {}".format(
+                    mask_idx, pred[0][mask_idx].argmax(dim=-1)))
+
             # predict leftover masks (|masks| < mask_num // num_iter)
             pred, pred_mask = self.decoder(y_in, None, h, None)
-            logging.info("mask_idx, pred:{}, {}".format(mask_idx, pred[0][mask_idx].argmax(dim=-1)))
+            logging.info("mask_idx, pred:{}, {}".format(
+                mask_idx, pred[0][mask_idx].argmax(dim=-1)))
             y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
-            
-            #logging.info("msk:{}".format(n2s(y_in[0].tolist())))
+
+            # logging.info("msk:{}".format(n2s(y_in[0].tolist())))
         else:
             y_in[0] = y_hat[y_idx]
 
         ret = y_in.tolist()[0]
         #ret = y_hat[y_idx].tolist()
-        
+
         # todo:
         # when reach some point, get ctc output and iteratively refine with decoder
-        
+
         hyp = {"score": 0.0, "yseq": [self.sos] + ret + [self.eos]}
         return [hyp]
