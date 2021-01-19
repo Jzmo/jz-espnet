@@ -26,7 +26,7 @@ from espnet.nets.pytorch_backend.e2e_asr import CTC_LOSS_THRESHOLD
 from espnet.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
 from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
 from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform
-#from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform2 as mask_uniform
+# from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform2 as mask_uniform
 from espnet.nets.pytorch_backend.maskctc.mask import square_mask
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
 from espnet.nets.pytorch_backend.nets_utils import th_accuracy
@@ -213,19 +213,20 @@ class E2E(E2ETransformer):
         x = torch.as_tensor(x)
         self.eval()
         logging.info("check model state mask token: {}".format(self.mask_token))
-        """
         # h = self.encode(x).unsqueeze(0)
         # block_len = recog_args.xl_decode_block_length
         block_len = 32
         # chuck_len = recog_args.xl_decode_chuck_length
         chuck_len = 4
         subsample = 4
-        decode_mode = "streaming_ctc"
+        decode_mode = "online"
         logging.info("self.odim is {}".format(self.odim))
-        if decode_mode == "streaming_ctc":
+        if decode_mode == "online":
             x = x[:x.size(0)//subsample * subsample, :]
-            hs_pad = torch.zeros(x.size(0)//subsample, self.adim, dtype=x.dtype).unsqueeze(0)
-            logging.info("length length//4 {} {}".format(x.size(0), x.size(0)//subsample))
+            hs_pad = torch.zeros(x.size(0)//subsample,
+                                 self.adim, dtype=x.dtype).unsqueeze(0)
+            logging.info(
+                "length length//4 {} {}".format(x.size(0), x.size(0)//subsample))
 
             hyp_new = [self.sos]
             h_pad = hs_pad.clone()
@@ -234,16 +235,21 @@ class E2E(E2ETransformer):
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
                 if (t+1) % (block_len * chuck_len * subsample) == 0 or (t == x.size(0) - 1 and t0//subsample < t//subsample):
-                    logging.info("chunking feat {} {} {}".format(t0, t+1, x[t0:t+1, :].size()))
+                    logging.info("chunking feat {} {} {}".format(
+                        t0, t+1, x[t0:t+1, :].size()))
                     if t0 > block_len * subsample:
                         # after first block
-                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0-block_len*subsample:t+1, :].unsqueeze(0), None, None, None)[0][:, block_len:, :]
+                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(
+                            x[t0-block_len*subsample:t+1, :].unsqueeze(0), None, None, None)[0][:, block_len:, :]
                     else:
-                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(x[t0: t+1, :].unsqueeze(0), None, None, None)[0]
+                        h_pad[:, t0//subsample:t//subsample, :] = self.encoder(
+                            x[t0: t+1, :].unsqueeze(0), None, None, None)[0]
                     # greedy ctc output
-                    logging.info("intervel: {}, {}".format(t0//subsample, t//subsample))
-                    #ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, :t//subsample, :])).max(dim=-1)
-                    ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, t0//subsample:t//subsample, :])).max(dim=-1)
+                    logging.info("intervel: {}, {}".format(
+                        t0//subsample, t//subsample))
+                    # ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h_pad[:, :t//subsample, :])).max(dim=-1)
+                    ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(
+                        h_pad[:, t0//subsample:t//subsample, :])).max(dim=-1)
 
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
                     y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
@@ -263,96 +269,104 @@ class E2E(E2ETransformer):
 
                     # mask ctc output based on ctc probablities
                     p_thres = recog_args.maskctc_probability_threshold
-                    mask_idx = torch.nonzero(probs_hat[y_idx] < p_thres).squeeze(-1)
-                    confident_idx = torch.nonzero(probs_hat[y_idx] >= p_thres).squeeze(-1)
+                    mask_idx = torch.nonzero(
+                        probs_hat[y_idx] < p_thres).squeeze(-1)
+                    confident_idx = torch.nonzero(
+                        probs_hat[y_idx] >= p_thres).squeeze(-1)
                     mask_num = len(mask_idx)
 
-                    y_in = torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
+                    y_in = torch.zeros(
+                        1, len(y_idx), dtype=torch.long) + self.mask_token
                     y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
 
                     # iterative decoding
                     if not mask_num == 0:
                         K = recog_args.maskctc_n_iterations
                         num_iter = K if mask_num >= K and K > 0 else mask_num
-                    
+
                         for t in range(num_iter - 1):
                             pred, _ = self.decoder(y_in, None, h_pad, None)
                             pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
-                            cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
+                            cand = torch.topk(
+                                pred_score, mask_num // num_iter, -1)[1]
                             y_in[0][mask_idx[cand]] = pred_id[cand]
-                            mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
-                        
+                            mask_idx = torch.nonzero(
+                                y_in[0] == self.mask_token).squeeze(-1)
+
                             logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-                            
+
                             # predict leftover masks (|masks| < mask_num // num_iter)
                         pred, pred_mask = self.decoder(y_in, None, h_pad, None)
                         y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
-                                                                                                                        
+
                         logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-                        
+
                     ret += y_in.tolist()[0]
                 if t == x.size(0) - 1:
                     break
-        """
-        h = self.encoder(x.unsqueeze(0), None, None, None)[0]
+        else:
 
-        # greedy ctc outputs
-        ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h)).max(dim=-1)
-        y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
-        y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
+            h = self.encoder(x.unsqueeze(0), None, None, None)[0]
 
-        # calculate token-level ctc probabilities by taking
-        # the maximum probability of consecutive frames with
-        # the same ctc symbols
-        probs_hat = []
-        cnt = 0
-        for i, y in enumerate(y_hat.tolist()):
-            probs_hat.append(-1)
-            while cnt < ctc_ids.shape[1] and y == ctc_ids[0][cnt]:
-                if probs_hat[i] < ctc_probs[0][cnt]:
-                    probs_hat[i] = ctc_probs[0][cnt].item()
-                cnt += 1
-        probs_hat = torch.from_numpy(numpy.array(probs_hat))
+            # greedy ctc outputs
+            ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(h)).max(dim=-1)
+            y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
+            y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
 
-        # mask ctc outputs based on ctc probabilities
-        p_thres = recog_args.maskctc_probability_threshold
-        mask_idx = torch.nonzero(probs_hat[y_idx] < p_thres).squeeze(-1)
-        confident_idx = torch.nonzero(probs_hat[y_idx] >= p_thres).squeeze(-1)
-        mask_num = len(mask_idx)
+            # calculate token-level ctc probabilities by taking
+            # the maximum probability of consecutive frames with
+            # the same ctc symbols
+            probs_hat = []
+            cnt = 0
+            for i, y in enumerate(y_hat.tolist()):
+                probs_hat.append(-1)
+                while cnt < ctc_ids.shape[1] and y == ctc_ids[0][cnt]:
+                    if probs_hat[i] < ctc_probs[0][cnt]:
+                        probs_hat[i] = ctc_probs[0][cnt].item()
+                    cnt += 1
+            probs_hat = torch.from_numpy(numpy.array(probs_hat))
 
-        y_in = torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
-        y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
+            # mask ctc outputs based on ctc probabilities
+            p_thres = recog_args.maskctc_probability_threshold
+            mask_idx = torch.nonzero(probs_hat[y_idx] < p_thres).squeeze(-1)
+            confident_idx = torch.nonzero(
+                probs_hat[y_idx] >= p_thres).squeeze(-1)
+            mask_num = len(mask_idx)
 
-        # logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
+            y_in = torch.zeros(
+                1, len(y_idx), dtype=torch.long) + self.mask_token
+            y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
 
-        # iterative decoding
-        if not mask_num == 0 and recog_args.maskctc_n_iterations > 0:
-            K = recog_args.maskctc_n_iterations
-            num_iter = K if mask_num >= K and K > 0 else mask_num
+            # logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
 
-            for t in range(num_iter - 1):
-                pred, _ = self.decoder(y_in, None, h, None)
-                pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
-                cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
-                y_in[0][mask_idx[cand]] = pred_id[cand]
-                mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
+            # iterative decoding
+            if not mask_num == 0 and recog_args.maskctc_n_iterations > 0:
+                K = recog_args.maskctc_n_iterations
+                num_iter = K if mask_num >= K and K > 0 else mask_num
 
-                logging.info("msk:{}".format(n2s(y_in[0].tolist())))
+                for t in range(num_iter - 1):
+                    pred, _ = self.decoder(y_in, None, h, None)
+                    pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
+                    cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
+                    y_in[0][mask_idx[cand]] = pred_id[cand]
+                    mask_idx = torch.nonzero(
+                        y_in[0] == self.mask_token).squeeze(-1)
+
+                    logging.info("msk:{}".format(n2s(y_in[0].tolist())))
+                    logging.info("mask_idx, pred:{}, {}".format(
+                        mask_idx, pred[0][mask_idx].argmax(dim=-1)))
+
+                # predict leftover masks (|masks| < mask_num // num_iter)
+                pred, pred_mask = self.decoder(y_in, None, h, None)
                 logging.info("mask_idx, pred:{}, {}".format(
                     mask_idx, pred[0][mask_idx].argmax(dim=-1)))
-
-            # predict leftover masks (|masks| < mask_num // num_iter)
-            pred, pred_mask = self.decoder(y_in, None, h, None)
-            logging.info("mask_idx, pred:{}, {}".format(
-                mask_idx, pred[0][mask_idx].argmax(dim=-1)))
-            y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
+                y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
 
             # logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-        else:
-            y_in[0] = y_hat[y_idx]
+            else:
+                y_in[0] = y_hat[y_idx]
 
         ret = y_in.tolist()[0]
-        #ret = y_hat[y_idx].tolist()
 
         # todo:
         # when reach some point, get ctc output and iteratively refine with decoder
