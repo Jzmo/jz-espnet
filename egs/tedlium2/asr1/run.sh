@@ -220,7 +220,7 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
-    nj=1
+    nj=8
     if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *maskctc* ]] || \
