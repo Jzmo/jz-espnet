@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
-stop_stage=4
+stage=5       # start from -1 if you need to start from data download
+stop_stage=5
 ngpu=2         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -21,9 +21,9 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc_block_debug.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/tuning/decode_pytorch_transformer_maskctc_iter0.yaml
+decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online.yaml
 
 # rnnlm related
 skip_lm_training=true   # for only using end-to-end ASR model without LM
@@ -32,7 +32,7 @@ lmtag=                  # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-use_stearming=true
+use_stearming=false
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
