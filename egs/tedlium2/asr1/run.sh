@@ -32,7 +32,7 @@ lmtag=                  # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-use_stearming=false
+use_stearming=true
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
@@ -214,7 +214,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 fi
 
 if ${use_stearming}; then
-    recog_set="dev_unsegmented"
+    recog_set="dev_unsegmented test_unsegmented"
 fi
 
 
