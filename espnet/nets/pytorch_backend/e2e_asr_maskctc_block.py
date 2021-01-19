@@ -87,7 +87,7 @@ class E2E(E2ETransformer):
         logging.info("odim {}".format(odim))
         super().__init__(idim, odim, args, ignore_id)
         assert 0.0 <= self.mtlalpha < 1.0, "mtlalpha should be [0.0, 1.0)"
-        self.mask_token = odim - 1
+        self.mask_token = odim - 2
         self.sos = odim - 2
         self.eos = odim - 2
         # <mask token>
@@ -366,7 +366,7 @@ class E2E(E2ETransformer):
             else:
                 y_in[0] = y_hat[y_idx]
 
-        ret = y_in.tolist()[0]
+            ret = y_in.tolist()[0]
 
         # todo:
         # when reach some point, get ctc output and iteratively refine with decoder
