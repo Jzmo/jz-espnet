@@ -16,7 +16,7 @@ for line in sys.stdin:
 
 for sid in txt.keys():
     after += 1
-    print(sid + "\t", end="")
+    print(sid + " ", end="")
     for trs in txt[sid]:
         print(trs, end="")
     print("")

@@ -21,9 +21,9 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online.yaml
+decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_iter0.yaml
 
 # rnnlm related
 skip_lm_training=true   # for only using end-to-end ASR model without LM
@@ -260,6 +260,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 
         #### use CPU for decoding
         ngpu=0
+	set -o xtrace
         ${decode_cmd} JOB=1:${nj} ${expdir}/${decode_dir}/log/decode.JOB.log \
             asr_recog.py \
             --config ${decode_config} \
@@ -312,7 +313,7 @@ if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
     for task in ${recog_set}; do
 	task_new=${task}_unsegmented
 	feat_recog_dir=${dumpdir}/${task_new}/delta${do_delta}
-	data2json.sh --feat ${feat_recog_dir}/feats.scp \
+	data2json.sh --feat ${feat_recog_dir}/feats.scp --bpecode ${bpemodel}.model \
 		     data/${task_new} ${dict} > ${feat_recog_dir}/data_${bpemode}${nbpe}.json
     done
 fi
