@@ -6,11 +6,13 @@
 . ./path.sh || exit 1;
 . ./cmd.sh || exit 1;
 
+set -x
+
 # general configuration
 backend=pytorch
 stage=5       # start from -1 if you need to start from data download
 stop_stage=5
-ngpu=2         # number of gpus ("0" uses cpu, otherwise use gpu)
+ngpu=0         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -21,9 +23,9 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc_block.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_iter0.yaml
+decode_config=conf/tuning/decode_pytorch_transformer_maskctc_iter0.yaml
 
 # rnnlm related
 skip_lm_training=true   # for only using end-to-end ASR model without LM
@@ -233,11 +235,11 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         else
             recog_model=model.last${n_average}.avg.best
         fi
-        average_checkpoints.py --backend ${backend} \
-			        --snapshots ${expdir}/results/snapshot.ep.* \
-			        --out ${expdir}/results/${recog_model} \
-			        --num ${n_average} \
-                    ${average_opts}
+        #average_checkpoints.py --backend ${backend} \
+	#		        --snapshots ${expdir}/results/snapshot.ep.* \
+#			        --out ${expdir}/results/${recog_model} \
+#			        --num ${n_average} \
+#                    ${average_opts}
     fi
 
     pids=() # initialize pids
@@ -285,7 +287,7 @@ fi
 
 if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
     dir=data/
-    recog_set="dev test"
+    recog_set="train_trim"
     for task in ${recog_set}; do
 	task_new=${task}_unsegmented
 	mkdir -p ${dir}/${task_new}
@@ -302,6 +304,19 @@ if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
 				  data/${task_new} exp/make_fbank/${task_new} ${fbankdir}
 	utils/fix_data_dir.sh data/${task_new}
     done
+
+    train_set = "train_trim_sp"
+    remove_longshortdata.sh --maxchars 400 data/train data/train_trim
+
+    # speed-perturbed
+    utils/perturb_data_dir_speed.sh 0.9 data/train_trim data/temp1
+    utils/perturb_data_dir_speed.sh 1.0 data/train_trim data/temp2
+    utils/perturb_data_dir_speed.sh 1.1 data/train_trim data/temp3
+    utils/combine_data.sh --extra-files utt2uniq data/${train_set} data/temp1 data/temp2 data/temp3
+    rm -r data/temp1 data/temp2 data/temp3
+    steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj 32 --write_utt2num_frames true \
+        data/${train_set} exp/make_fbank/${train_set} ${fbankdir}
+    utils/fix_data_dir.sh data/${train_set}
 
     for task in ${recog_set}; do
 	task_new=${task}_unsegmented
