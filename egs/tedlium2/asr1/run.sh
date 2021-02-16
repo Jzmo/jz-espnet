@@ -21,7 +21,7 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_convbert.yaml
+train_config=conf/tuning/train_pytorch_convbert_acratio1.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/decode.yaml
 
@@ -238,7 +238,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     fi
 
     pids=() # initialize pids
-    for rtask in dev; do #${recog_set}; do
+    for rtask in ${recog_set}; do
     (
         recog_opts=
         if ${skip_lm_training}; then
