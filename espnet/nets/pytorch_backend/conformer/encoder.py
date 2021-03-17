@@ -118,7 +118,8 @@ class Encoder(torch.nn.Module):
             self.embed = VGG2L(idim, attention_dim)
         elif input_layer == "embed":
             self.embed = torch.nn.Sequential(
-                torch.nn.Embedding(idim, attention_dim, padding_idx=padding_idx),
+                torch.nn.Embedding(idim, attention_dim,
+                                   padding_idx=padding_idx),
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
         elif isinstance(input_layer, torch.nn.Module):
@@ -152,7 +153,8 @@ class Encoder(torch.nn.Module):
                 attention_dropout_rate,
             )
         else:
-            raise ValueError("unknown encoder_attn_layer: " + selfattention_layer_type)
+            raise ValueError("unknown encoder_attn_layer: " +
+                             selfattention_layer_type)
 
         # feed-forward module definition
         if positionwise_layer_type == "linear":
@@ -192,8 +194,10 @@ class Encoder(torch.nn.Module):
                 attention_dim,
                 encoder_selfattn_layer(*encoder_selfattn_layer_args),
                 positionwise_layer(*positionwise_layer_args),
-                positionwise_layer(*positionwise_layer_args) if macaron_style else None,
-                convolution_layer(*convolution_layer_args) if use_cnn_module else None,
+                positionwise_layer(
+                    *positionwise_layer_args) if macaron_style else None,
+                convolution_layer(
+                    *convolution_layer_args) if use_cnn_module else None,
                 dropout_rate,
                 normalize_before,
                 concat_after,
@@ -222,7 +226,6 @@ class Encoder(torch.nn.Module):
         xs, masks = self.encoders(xs, masks)
         if isinstance(xs, tuple):
             xs = xs[0]
-
         if self.normalize_before:
             xs = self.after_norm(xs)
         return xs, masks

@@ -263,6 +263,8 @@ class RelBlockMultiHeadedAttention(nn.Module):
         n_batch, klen, dim = key.size()
         if block_len is not None:
             self.block_len = block_len
+        logging.info("attn block_len:{}".format(self.block_len))
+        # exit()
         if self.block_len > 0:
             if query.size(1) != key.size(1):
                 print(
@@ -405,4 +407,5 @@ class RelBlockMultiHeadedAttention(nn.Module):
         x = torch.matmul(p_attn, v)  # (batch, head, time1, d_k)
         x = x.transpose(1, 2).contiguous().view(
             n_batch, -1, self.h * self.d_k)  # (batch, time1, d_model)
+
         return self.linear_out(x)[:, :qlen, :]  # (batch, time1, d_model)

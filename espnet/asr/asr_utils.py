@@ -142,7 +142,8 @@ else:
                             i + 1,
                         )
                         np.save(np_filename.format(trainer), att_w)
-                        self._plot_and_save_attention(att_w, filename.format(trainer))
+                        self._plot_and_save_attention(
+                            att_w, filename.format(trainer))
                 # han
                 for idx, att_w in enumerate(att_ws[num_encs]):
                     filename = "%s/%s.ep.{.updater.epoch}.han.png" % (
@@ -170,7 +171,8 @@ else:
                         self.data[idx][0],
                     )
                     np.save(np_filename.format(trainer), att_w)
-                    self._plot_and_save_attention(att_w, filename.format(trainer))
+                    self._plot_and_save_attention(
+                        att_w, filename.format(trainer))
 
         def log_attentions(self, logger, step):
             """Add image files of att_ws matrix to the tensorboard."""
@@ -183,18 +185,21 @@ else:
                         att_w = self.get_attention_weight(idx, att_w)
                         plot = self.draw_attention_plot(att_w)
                         logger.add_figure(
-                            "%s_att%d" % (self.data[idx][0], i + 1), plot.gcf(), step
+                            "%s_att%d" % (
+                                self.data[idx][0], i + 1), plot.gcf(), step
                         )
                 # han
                 for idx, att_w in enumerate(att_ws[num_encs]):
                     att_w = self.get_attention_weight(idx, att_w)
                     plot = self.draw_han_plot(att_w)
-                    logger.add_figure("%s_han" % (self.data[idx][0]), plot.gcf(), step)
+                    logger.add_figure("%s_han" %
+                                      (self.data[idx][0]), plot.gcf(), step)
             else:
                 for idx, att_w in enumerate(att_ws):
                     att_w = self.get_attention_weight(idx, att_w)
                     plot = self.draw_attention_plot(att_w)
-                    logger.add_figure("%s" % (self.data[idx][0]), plot.gcf(), step)
+                    logger.add_figure(
+                        "%s" % (self.data[idx][0]), plot.gcf(), step)
 
         def get_attention_weights(self):
             """Return attention weights.
@@ -217,11 +222,15 @@ else:
         def get_attention_weight(self, idx, att_w):
             """Transform attention matrix with regard to self.reverse."""
             if self.reverse:
-                dec_len = int(self.data[idx][1][self.ikey][self.iaxis]["shape"][0])
-                enc_len = int(self.data[idx][1][self.okey][self.oaxis]["shape"][0])
+                dec_len = int(self.data[idx][1][self.ikey]
+                              [self.iaxis]["shape"][0])
+                enc_len = int(self.data[idx][1][self.okey]
+                              [self.oaxis]["shape"][0])
             else:
-                dec_len = int(self.data[idx][1][self.okey][self.oaxis]["shape"][0])
-                enc_len = int(self.data[idx][1][self.ikey][self.iaxis]["shape"][0])
+                dec_len = int(self.data[idx][1][self.okey]
+                              [self.oaxis]["shape"][0])
+                enc_len = int(self.data[idx][1][self.ikey]
+                              [self.iaxis]["shape"][0])
             if len(att_w.shape) == 3:
                 att_w = att_w[:, :dec_len, :enc_len]
             else:
@@ -378,7 +387,8 @@ else:
                             i + 1,
                         )
                         np.save(np_filename.format(trainer), ctc_prob)
-                        self._plot_and_save_ctc(ctc_prob, filename.format(trainer))
+                        self._plot_and_save_ctc(
+                            ctc_prob, filename.format(trainer))
             else:
                 for idx, ctc_prob in enumerate(ctc_probs):
                     filename = "%s/%s.ep.{.updater.epoch}.png" % (
@@ -401,12 +411,14 @@ else:
                     for idx, ctc_prob in enumerate(ctc_probs[i]):
                         plot = self.draw_ctc_plot(ctc_prob)
                         logger.add_figure(
-                            "%s_att%d" % (self.data[idx][0], i + 1), plot.gcf(), step
+                            "%s_att%d" % (
+                                self.data[idx][0], i + 1), plot.gcf(), step
                         )
             else:
                 for idx, ctc_prob in enumerate(ctc_probs):
                     plot = self.draw_ctc_plot(ctc_prob)
-                    logger.add_figure("%s" % (self.data[idx][0]), plot.gcf(), step)
+                    logger.add_figure(
+                        "%s" % (self.data[idx][0]), plot.gcf(), step)
 
         def get_ctc_probs(self):
             """Return CTC probs.
@@ -572,7 +584,8 @@ def torch_snapshot(savefun=torch.save, filename="snapshot.ep.{.updater.epoch}"):
 
     @extension.make_extension(trigger=(1, "epoch"), priority=-100)
     def torch_snapshot(trainer):
-        _torch_snapshot_object(trainer, trainer, filename.format(trainer), savefun)
+        _torch_snapshot_object(
+            trainer, trainer, filename.format(trainer), savefun)
 
     return torch_snapshot
 
@@ -732,7 +745,8 @@ def torch_load(path, model):
             "model"
         ]
     else:
-        model_state_dict = torch.load(path, map_location=lambda storage, loc: storage)
+        model_state_dict = torch.load(
+            path, map_location=lambda storage, loc: storage)
 
     if hasattr(model, "module"):
         model.module.load_state_dict(model_state_dict)
@@ -753,7 +767,8 @@ def torch_resume(snapshot_path, trainer):
     from chainer.serializers import NpzDeserializer
 
     # load snapshot
-    snapshot_dict = torch.load(snapshot_path, map_location=lambda storage, loc: storage)
+    snapshot_dict = torch.load(
+        snapshot_path, map_location=lambda storage, loc: storage)
 
     # restore trainer states
     d = NpzDeserializer(snapshot_dict["trainer"])
@@ -763,18 +778,21 @@ def torch_resume(snapshot_path, trainer):
     if hasattr(trainer.updater.model, "model"):
         # (for TTS model)
         if hasattr(trainer.updater.model.model, "module"):
-            trainer.updater.model.model.module.load_state_dict(snapshot_dict["model"])
+            trainer.updater.model.model.module.load_state_dict(
+                snapshot_dict["model"])
         else:
             trainer.updater.model.model.load_state_dict(snapshot_dict["model"])
     else:
         # (for ASR model)
         if hasattr(trainer.updater.model, "module"):
-            trainer.updater.model.module.load_state_dict(snapshot_dict["model"])
+            trainer.updater.model.module.load_state_dict(
+                snapshot_dict["model"])
         else:
             trainer.updater.model.load_state_dict(snapshot_dict["model"])
 
     # retore optimizer states
-    trainer.updater.get_optimizer("main").load_state_dict(snapshot_dict["optimizer"])
+    trainer.updater.get_optimizer("main").load_state_dict(
+        snapshot_dict["optimizer"])
 
     # delete opened snapshot
     del snapshot_dict
@@ -825,7 +843,8 @@ def add_results_to_json(js, nbest_hyps, char_list):
 
     for n, hyp in enumerate(nbest_hyps, 1):
         # parse hypothesis
-        rec_text, rec_token, rec_tokenid, score = parse_hypothesis(hyp, char_list)
+        rec_text, rec_token, rec_tokenid, score = parse_hypothesis(
+            hyp, char_list)
 
         # copy ground-truth
         if len(js["output"]) > 0:
@@ -979,7 +998,8 @@ def format_mulenc_args(args):
             # duplicate
             logging.warning(
                 "Type mismatch {}: Convert {} to {}.".format(
-                    k, vars(args)[k], [vars(args)[k] for _ in range(args.num_encs)]
+                    k, vars(args)[k], [vars(args)[k]
+                                       for _ in range(args.num_encs)]
                 )
             )
             vars(args)[k] = [vars(args)[k] for _ in range(args.num_encs)]

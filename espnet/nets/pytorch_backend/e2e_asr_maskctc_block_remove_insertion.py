@@ -372,7 +372,7 @@ class E2E(E2ETransformer):
         # chuck_len = recog_args.xl_decode_chuck_length
         chuck_len = 1
         subsample = 4
-        cache_len = 3
+        cache_len = 0
         decode_mode = "online"
         logging.info("self.odim is {}".format(self.odim))
         if decode_mode == "online":
@@ -399,7 +399,6 @@ class E2E(E2ETransformer):
                         t1, t+1, x[t1:t+1, :].size()))
                     if t1 > block_len * subsample * chuck_len:
                         # after first block
-
                         h_pad[:, t1//subsample:t//subsample, :] = self.encoder(
                             x[t1-block_len*subsample*chuck_len:t+1, :].unsqueeze(0), None, None, None)[0][:, block_len*chuck_len:, :]
                     else:
@@ -414,14 +413,16 @@ class E2E(E2ETransformer):
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
 
                     y_hat = y_hat[y_hat != 0]
-                    if y_hat_prev.size(0) > 0 and y_hat.size(0) > 0:
+                    if y_hat.size(0) > 0:
                         #y_hat_concat = torch.cat([y_hat_prev, y_hat])
                         # y_hat = torch.stack([i[0] for i in groupby(y_hat_concat)])[
                         #    len(y_hat_prev):]
                         if y_hat[:2].equal(y_hat_prev[-2:]):
                             y_hat = y_hat[2:]
-                        elif y_hat[0].equal(y_hat_prev[-1]):
-                            y_hat = y_hat[1:]
+                            pdb.set_trace()
+                        # elif y_hat[0].equal(y_hat_prev[-1]):
+                        #    y_hat = y_hat[1:]
+                        pdb.set_trace()
                         # pass
 
                     y_hat_prev = y_hat.clone()
@@ -489,7 +490,7 @@ class E2E(E2ETransformer):
 
                         # h_pad_in plus previous h_pad
                         h_pad_in = h_pad[:, t1//subsample -
-                                         block_len*cache_len:t//subsample, :]
+                                         block_len*chuck_len:t//subsample, :]
 
                         for n_iter in range(num_iter-1):
 

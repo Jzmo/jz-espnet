@@ -77,10 +77,18 @@ def plot_multi_head_attention(
     :param subsampling_rate: subsampling rate in encoder
 
     """
+    return None
     for name, att_ws in attn_dict.items():
         for idx, att_w in enumerate(att_ws):
+            print("size", len(att_ws))
+            print('name', name)
+            print('idx', idx)
+            print('outdir', outdir)
+            print(len(data))
+            print('data[idx]', data[idx])
             filename = "%s/%s.%s.%s" % (outdir, data[idx][0], name, suffix)
-            dec_len = int(data[idx][1][okey][oaxis]["shape"][0]) + 1  # +1 for <eos>
+            dec_len = int(data[idx][1][okey][oaxis]
+                          ["shape"][0]) + 1  # +1 for <eos>
             enc_len = int(data[idx][1][ikey][iaxis]["shape"][0])
             is_mt = "token" in data[idx][1][ikey][iaxis].keys()
             # for ASR/ST
@@ -98,13 +106,16 @@ def plot_multi_head_attention(
                     # self-attention
                     att_w = att_w[:, :dec_len, :dec_len]
                     if "token" in data[idx][1][okey][oaxis].keys():
-                        ytokens = data[idx][1][okey][oaxis]["token"].split() + ["<eos>"]
-                        xtokens = ["<sos>"] + data[idx][1][okey][oaxis]["token"].split()
+                        ytokens = data[idx][1][okey][oaxis]["token"].split(
+                        ) + ["<eos>"]
+                        xtokens = ["<sos>"] + \
+                            data[idx][1][okey][oaxis]["token"].split()
                 else:
                     # cross-attention
                     att_w = att_w[:, :dec_len, :enc_len]
                     if "token" in data[idx][1][okey][oaxis].keys():
-                        ytokens = data[idx][1][okey][oaxis]["token"].split() + ["<eos>"]
+                        ytokens = data[idx][1][okey][oaxis]["token"].split(
+                        ) + ["<eos>"]
                     # for MT
                     if is_mt:
                         xtokens = data[idx][1][ikey][iaxis]["token"].split()

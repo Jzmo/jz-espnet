@@ -16,11 +16,8 @@ import pdb
 
 from distutils.util import strtobool
 import numpy
-from numpy.random import uniform
 import torch
 import time
-import chainer
-from chainer import reporter
 
 from espnet.nets.pytorch_backend.transformer.encoder_xl import EncoderXL as Encoder
 from espnet.nets.pytorch_backend.conformer.argument import (
@@ -29,32 +26,11 @@ from espnet.nets.pytorch_backend.conformer.argument import (
 from espnet.nets.pytorch_backend.e2e_asr import CTC_LOSS_THRESHOLD
 from espnet.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
 from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
-from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform, mask_uniform_dlp
+from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform
 # from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform2 as mask_uniform
 from espnet.nets.pytorch_backend.maskctc.mask import square_mask
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
 from espnet.nets.pytorch_backend.nets_utils import th_accuracy
-from espnet.nets.pytorch_backend.transformer.decoder import Decoder
-from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (
-        LabelSmoothingLoss,  # noqa: H301
-    )
-
-
-class DLPReporter(chainer.Chain):
-    """A chainer reporter wrapper."""
-
-    def report(self, loss_ctc, loss_att, acc, loss_dlp, acc_dlp, cer_ctc, cer, wer, mtl_loss):
-        """Report at every step."""
-        reporter.report({"loss_ctc": loss_ctc}, self)
-        reporter.report({"loss_att": loss_att}, self)
-        reporter.report({"acc": acc}, self)
-        reporter.report({"loss_dlp": loss_dlp}, self)
-        reporter.report({"acc_dlp": acc_dlp}, self)
-        reporter.report({"cer_ctc": cer_ctc}, self)
-        reporter.report({"cer": cer}, self)
-        reporter.report({"wer": wer}, self)
-        logging.info("mtl loss:" + str(mtl_loss))
-        reporter.report({"loss": mtl_loss}, self)
 
 
 class E2E(E2ETransformer):
@@ -84,11 +60,6 @@ class E2E(E2ETransformer):
             "--maskctc-use-conformer-encoder",
             default=False,
             type=strtobool,
-        )
-        group.add_argument(
-            "--maskctc-dynamic-length-prediction-weight",
-            default=0.0,
-            type=float,
         )
         group = add_arguments_conformer_common(group)
 
@@ -120,7 +91,6 @@ class E2E(E2ETransformer):
         self.mask_token = odim - 1
         self.sos = odim - 2
         self.eos = odim - 2
-        self.block_len = args.block_length
         # <mask token>
 
         self.encoder = Encoder(
@@ -141,29 +111,6 @@ class E2E(E2ETransformer):
             cnn_module_kernel=args.cnn_module_kernel,
             block_length=args.block_length,
         )
-        self.dlp_weight = args.maskctc_dynamic_length_prediction_weight
-        if self.dlp_weight > 0:
-            self.decoder = Decoder(
-                odim=odim,
-                selfattention_layer_type=args.transformer_decoder_selfattn_layer_type,
-                attention_dim=args.adim,
-                attention_heads=args.aheads,
-                conv_wshare=args.wshare,
-                conv_kernel_length=args.ldconv_decoder_kernel_length,
-                conv_usebias=args.ldconv_usebias,
-                linear_units=args.dunits,
-                num_blocks=args.dlayers,
-                dropout_rate=args.dropout_rate,
-                positional_dropout_rate=args.dropout_rate,
-                self_attention_dropout_rate=args.transformer_attn_dropout_rate,
-                src_attention_dropout_rate=args.transformer_attn_dropout_rate,
-                use_output_layer=False  # raw output
-            )
-            self.decoder_output_layer = torch.nn.Linear(args.adim, odim)
-            self.dlp_layer = torch.nn.Linear(args.adim, 50)
-            self.dlp_criterion = LabelSmoothingLoss(50, ignore_id, 0.0, False)
-            self.reporter = DLPReporter()
-
         self.reset_parameters(args)
 
     def forward(self, xs_pad, ilens, ys_pad):
@@ -179,26 +126,12 @@ class E2E(E2ETransformer):
         :return: accuracy in attention decoder
         :rtype: float
         """
-        if self.block_len == -1:
-            alpha = uniform(0, 1)
-            if alpha > 0.5:
-                block_len = -1
-            else:
-                block_len = int(uniform(1, 64))
-                logging.info("block length is {}".format(block_len))
-        else:
-            block_len = self.block_len
-
-        if self.dlp_weight > 0:
-            return self.forward_dlp(xs_pad, ilens, ys_pad, block_len)
-
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
         src_mask = make_non_pad_mask(ilens.tolist()).to(
             xs_pad.device).unsqueeze(-2)
 
-        hs_pad, hs_mask, _, _, bl = self.encoder(
-            xs_pad, src_mask, None, None, bl=block_len)
+        hs_pad, hs_mask, _, _, bl = self.encoder(xs_pad, src_mask, None, None)
         self.hs_pad = hs_pad
 
         # 2. forward decoder
@@ -259,90 +192,6 @@ class E2E(E2ETransformer):
             logging.warning("loss (=%f) is not correct", loss_data)
         return self.loss
 
-    def forward_dlp(self, xs_pad, ilens, ys_pad, block_len):
-        # 1. forward encoder
-        xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
-        src_mask = make_non_pad_mask(ilens.tolist()).to(
-            xs_pad.device).unsqueeze(-2)
-        hs_pad, hs_mask, _, _, bl = self.encoder(
-            xs_pad, src_mask, None, None, bl=block_len)
-        logging.info("check the output size:{}".format(hs_pad.size()))
-        self.hs_pad = hs_pad
-
-        # 2. forward decoder
-        ys_in_pad, ys_out_pad = mask_uniform(
-            ys_pad, self.mask_token, self.eos, self.ignore_id
-        )
-        ys_mask = square_mask(ys_in_pad, self.eos)
-        pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
-        pred_pad = self.decoder_output_layer(pred_pad)  # important
-        self.pred_pad = pred_pad
-
-        # 3. compute attention loss
-        loss_att = self.criterion(pred_pad, ys_out_pad)
-        self.acc = th_accuracy(
-            pred_pad.view(-1, self.odim), ys_out_pad, ignore_label=self.ignore_id
-        )
-
-        # dynamic length prediction (dlp)
-        ys_in_pad_dlp, ys_out_pad_dlp = mask_uniform_dlp(
-            ys_pad, self.mask_token, self.eos, self.ignore_id
-        )
-        ys_mask_dlp = square_mask(ys_in_pad_dlp, self.eos)
-        pred_pad_dlp, _ = self.decoder(
-            ys_in_pad_dlp, ys_mask_dlp, hs_pad.repeat(2, 1, 1), hs_mask.repeat(2, 1, 1))
-        pred_pad_dlp = self.dlp_layer(pred_pad_dlp)
-
-        loss_dlp = self.dlp_criterion(pred_pad_dlp, ys_out_pad_dlp)
-        self.acc_dlp = th_accuracy(
-            pred_pad_dlp.view(-1, 50), ys_out_pad_dlp, ignore_label=self.ignore_id
-        )
-
-        # 4. compute ctc loss
-        loss_ctc, cer_ctc = None, None
-        if self.mtlalpha > 0:
-            batch_size = xs_pad.size(0)
-            hs_len = hs_mask.view(batch_size, -1).sum(1)
-            loss_ctc = self.ctc(hs_pad.view(
-                batch_size, -1, self.adim), hs_len, ys_pad)
-            if self.error_calculator is not None:
-                ys_hat = self.ctc.argmax(hs_pad.view(
-                    batch_size, -1, self.adim)).data
-                cer_ctc = self.error_calculator(
-                    ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
-            # for visualization
-            if not self.training:
-                self.ctc.softmax(hs_pad)
-
-        # 5. compute cer/wer
-        if self.training or self.error_calculator is None or self.decoder is None:
-            cer, wer = None, None
-        else:
-            ys_hat = pred_pad.argmax(dim=-1)
-            cer, wer = self.error_calculator(ys_hat.cpu(), ys_pad.cpu())
-
-        alpha = self.mtlalpha
-        if alpha == 0:
-            self.loss = loss_att
-            loss_att_data = float(loss_att)
-            loss_ctc_data = None
-        else:
-            self.loss = alpha * loss_ctc + (1 - alpha) * loss_att
-            loss_att_data = float(loss_att)
-            loss_ctc_data = float(loss_ctc)
-
-        self.loss += (self.dlp_weight * loss_dlp)
-        loss_dlp_data = float(loss_dlp)
-
-        loss_data = float(self.loss)
-        if loss_data < CTC_LOSS_THRESHOLD and not math.isnan(loss_data):
-            self.reporter.report(
-                loss_ctc_data, loss_att_data, self.acc, loss_dlp_data, self.acc_dlp, cer_ctc, cer, wer, loss_data
-            )
-        else:
-            logging.warning("loss (=%f) is not correct", loss_data)
-        return self.loss
-
     def recognize(self, x, recog_args, char_list=None, rnnlm=None):
         """Recognize input speech.
 
@@ -370,7 +219,7 @@ class E2E(E2ETransformer):
         # block_len recog_args.xl_decode_block_length
         block_len = 16
         # chuck_len = recog_args.xl_decode_chuck_length
-        chuck_len = 1
+        chuck_len = 4
         subsample = 4
         cache_len = 3
         decode_mode = "online"
@@ -399,7 +248,6 @@ class E2E(E2ETransformer):
                         t1, t+1, x[t1:t+1, :].size()))
                     if t1 > block_len * subsample * chuck_len:
                         # after first block
-
                         h_pad[:, t1//subsample:t//subsample, :] = self.encoder(
                             x[t1-block_len*subsample*chuck_len:t+1, :].unsqueeze(0), None, None, None)[0][:, block_len*chuck_len:, :]
                     else:
@@ -412,18 +260,12 @@ class E2E(E2ETransformer):
                     ctc_probs, ctc_ids = torch.exp(self.ctc.log_softmax(
                         h_pad[:, t0//subsample:t//subsample, :])).max(dim=-1)
                     y_hat = torch.stack([x[0] for x in groupby(ctc_ids[0])])
-
                     y_hat = y_hat[y_hat != 0]
-                    if y_hat_prev.size(0) > 0 and y_hat.size(0) > 0:
-                        #y_hat_concat = torch.cat([y_hat_prev, y_hat])
-                        # y_hat = torch.stack([i[0] for i in groupby(y_hat_concat)])[
-                        #    len(y_hat_prev):]
-                        if y_hat[:2].equal(y_hat_prev[-2:]):
-                            y_hat = y_hat[2:]
-                        elif y_hat[0].equal(y_hat_prev[-1]):
-                            y_hat = y_hat[1:]
-                        # pass
-
+                    if y_hat.size(0) > 0:
+                        y_hat = torch.stack([i[0] for i in groupby(torch.cat([y_hat_prev, y_hat]))])[
+                            len(y_hat_prev):]
+                        # pdb.set_trace()
+                        pass
                     y_hat_prev = y_hat.clone()
                     y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
                     # calculate token-level ctc probability by taking
@@ -475,6 +317,7 @@ class E2E(E2ETransformer):
                     # iterative decoding
 
                     if not mask_num_concat == 0 and recog_args.maskctc_n_iterations > 0 and iter_decode:
+                        iter_decode = False
                         K = recog_args.maskctc_n_iterations
 
                         y_in_hist = y_in_cache[:, y_in_cache.size(
@@ -487,9 +330,7 @@ class E2E(E2ETransformer):
                         # mask_num = len(mask_idx_concat)
                         num_iter = K if mask_num_concat >= K and K > 0 else mask_num_concat
 
-                        # h_pad_in plus previous h_pad
-                        h_pad_in = h_pad[:, t1//subsample -
-                                         block_len*cache_len:t//subsample, :]
+                        h_pad_in = h_pad[:, t1//subsample:t//subsample, :]
 
                         for n_iter in range(num_iter-1):
 
@@ -518,6 +359,7 @@ class E2E(E2ETransformer):
                         # history decoder output
                         ret[len(ret)-hist_length:] = y_in_concat.tolist()[0]
                         # pdb.set_trace()
+
                     else:
                         pred_score = torch.zeros(
                             (y_in.size(1),), dtype=torch.float) + 100
