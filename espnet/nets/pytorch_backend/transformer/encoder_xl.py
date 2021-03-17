@@ -215,7 +215,7 @@ class EncoderXL(torch.nn.Module):
             self.after_norm = LayerNorm(attention_dim)
     # need change
 
-    def forward(self, xs, masks, km, km_mask):
+    def forward(self, xs, masks, km, km_mask, bl=None):
         """Encode input sequence.
 
         Args:
@@ -227,6 +227,8 @@ class EncoderXL(torch.nn.Module):
             torch.Tensor: Mask tensor (#batch, time).
 
         """
+        if bl is not None:
+            self.bl = bl
         if isinstance(self.embed, (Conv2dSubsampling, VGG2L)):
             xs, masks = self.embed(xs, masks)
         else:
@@ -239,4 +241,4 @@ class EncoderXL(torch.nn.Module):
 
         if self.normalize_before:
             xs = self.after_norm(xs)
-        return xs, masks, None, None, bl
+        return xs, masks, None, None, self.bl

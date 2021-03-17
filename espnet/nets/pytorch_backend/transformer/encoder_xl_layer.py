@@ -55,13 +55,14 @@ class EncoderLayerXL(nn.Module):
             self.ff_scale = 1.0
         if self.conv_module is not None:
             self.norm_conv = LayerNorm(size)  # for the CNN module
-            self.norm_final = LayerNorm(size)  # for the final output of the block
+            # for the final output of the block
+            self.norm_final = LayerNorm(size)
         self.dropout = nn.Dropout(dropout_rate)
         self.size = size
         self.normalize_before = normalize_before
         self.concat_after = concat_after
         if self.concat_after:
-            self.concat_linear = nn.Linear(size + size, size)                                                                                                                                                                
+            self.concat_linear = nn.Linear(size + size, size)
 
     def forward(self, x_input, mask, km=None, km_mask=None, bl=None, cache=None):
         """Compute encoded features.
@@ -76,7 +77,8 @@ class EncoderLayerXL(nn.Module):
             residual = x
             if self.normalize_before:
                 x = self.norm_ff_macaron(x)
-            x = residual + self.ff_scale * self.dropout(self.feed_forward_macaron(x))
+            x = residual + self.ff_scale * \
+                self.dropout(self.feed_forward_macaron(x))
             if not self.normalize_before:
                 x = self.norm_ff_macaron(x)
 
@@ -84,7 +86,7 @@ class EncoderLayerXL(nn.Module):
         residual = x
         if self.normalize_before:
             x = self.norm_mha(x)
-        
+
         if cache is None:
             x_q = x
         else:
@@ -94,10 +96,11 @@ class EncoderLayerXL(nn.Module):
             mask = None if mask is None else mask[:, -1:, :]
 
         if pos_emb is not None:
-            x_att = self.self_attn(x_q, x, x, mask, key_memory=km, key_memory_mask=km_mask, block_len=bl)
+            x_att = self.self_attn(
+                x_q, x, x, mask, key_memory=km, key_memory_mask=km_mask, block_len=bl)
         else:
             raise ValueError("position embedding is None")
-            
+
         if self.concat_after:
             x_concat = torch.cat((x, x_att), dim=-1)
             x = residual + self.concat_linear(x_concat)
@@ -111,7 +114,7 @@ class EncoderLayerXL(nn.Module):
             residual = x
             if self.normalize_before:
                 x = self.norm_conv(x)
-                x = residual + self.dropout(self.conv_module(x))
+                x = residual + self.dropout(self.conv_module(x, bl=bl))
             if not self.normalize_before:
                 x = self.norm_conv(x)
 
@@ -131,8 +134,9 @@ class EncoderLayerXL(nn.Module):
 
         if pos_emb is not None:
             return (x, pos_emb), mask, None, None, bl
-            
+
         return x, mask, None, None, bl
+
 
 class EncoderLayerKermitXL(nn.Module):
     """Encoder layer module.
@@ -175,10 +179,12 @@ class EncoderLayerKermitXL(nn.Module):
         if self.normalize_before:
             x = self.norm1(x)
         if self.concat_after:
-            x_concat = torch.cat((x, self.self_attn(x, x, x, mask, key_memory=km, key_memory_mask=km_mask, block_len=bl, kmem_after=after)), dim=-1)
+            x_concat = torch.cat((x, self.self_attn(
+                x, x, x, mask, key_memory=km, key_memory_mask=km_mask, block_len=bl, kmem_after=after)), dim=-1)
             x = residual + self.concat_linear(x_concat)
         else:
-            x = residual + self.dropout(self.self_attn(x, x, x, mask, key_memory=km, key_memory_mask=km_mask, block_len=bl, kmem_after=after))
+            x = residual + self.dropout(self.self_attn(x, x, x, mask, key_memory=km,
+                                                       key_memory_mask=km_mask, block_len=bl, kmem_after=after))
         if not self.normalize_before:
             x = self.norm1(x)
 
@@ -191,7 +197,8 @@ class EncoderLayerKermitXL(nn.Module):
         return x, mask
 
     def forward(self, x, mask, ys=None, ys_mask=None, bl=None):
-        tx, tmask = self._forward(x, mask, km=ys, km_mask=ys_mask, bl=bl, after=True)
+        tx, tmask = self._forward(
+            x, mask, km=ys, km_mask=ys_mask, bl=bl, after=True)
         ty, ymask = self._forward(ys, ys_mask, km=x, km_mask=mask, bl=0)
 
         return tx, tmask, ty, ymask, bl

@@ -8,8 +8,8 @@
 
 # general configuration
 backend=pytorch
-stage=0        # start from 0 if you need to start from data preparation
-stop_stage=100
+stage=-1        # start from 0 if you need to start from data preparation
+stop_stage=2
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -37,7 +37,7 @@ recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.bes
 n_average=10
 
 # data
-data=/export/a05/xna/data
+data=~/corpora/aishell
 data_url=www.openslr.org/resources/33
 
 # exp tag

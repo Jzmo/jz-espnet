@@ -10,6 +10,7 @@
 import torch
 from torch import nn
 import pdb
+import logging
 
 
 class ConvolutionModule(nn.Module):
@@ -56,7 +57,7 @@ class ConvolutionModule(nn.Module):
         )
         self.activation = activation
 
-    def forward(self, x):
+    def forward(self, x, bl=None):
         """Compute convolution module.
 
         Args:
@@ -67,6 +68,9 @@ class ConvolutionModule(nn.Module):
 
         """
         n_batch, time, dim = x.size()
+        if bl is not None:
+            self.block_len = bl
+        logging.info("conv bl:{}".format(bl))
         if self.block_len > 0:
             blen = self.block_len
             if time % blen > 0:
@@ -90,6 +94,20 @@ class ConvolutionModule(nn.Module):
             x = x.transpose(1, 2).contiguous().view(n_batch, -1, dim)
             x = self.activation(self.norm(x.transpose(1, 2)))
             x = self.pointwise_conv2(x)
-        # exchange the temporal dimension and the feature dimension
+            # exchange the temporal dimension and the feature dimension
 
-        return x.transpose(1, 2)[:, :time, :]
+            return x.transpose(1, 2)[:, :time, :]
+        else:
+            # exchange the temporal dimension and the feature dimension
+            x = x.transpose(1, 2)
+
+            # GLU mechanism
+            x = self.pointwise_conv1(x)  # (batch, 2*channel, dim)
+            x = nn.functional.glu(x, dim=1)  # (batch, channel, dim)
+
+            # 1D Depthwise Conv
+            x = self.depthwise_conv(x)
+            x = self.activation(self.norm(x))
+
+            x = self.pointwise_conv2(x)
+            return x.transpose(1, 2)

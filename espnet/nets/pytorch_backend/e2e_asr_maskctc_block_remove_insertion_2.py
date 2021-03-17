@@ -370,7 +370,7 @@ class E2E(E2ETransformer):
         # block_len recog_args.xl_decode_block_length
         block_len = 16
         # chuck_len = recog_args.xl_decode_chuck_length
-        chuck_len = 1
+        chuck_len = 4
         subsample = 4
         cache_len = 3
         decode_mode = "online"
@@ -394,12 +394,11 @@ class E2E(E2ETransformer):
             y_hat_prev = torch.tensor([], dtype=torch.float)
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
-                if (t+1) % (block_len * subsample) == 0 or (t == x.size(0) - 1 and t1//subsample < t//subsample):
+                if (t+1) % (block_len * subsample * 1) == 0 or (t == x.size(0) - 1 and t1//subsample < t//subsample):
                     logging.info("chunking feat {} {} {}".format(
                         t1, t+1, x[t1:t+1, :].size()))
                     if t1 > block_len * subsample * chuck_len:
                         # after first block
-
                         h_pad[:, t1//subsample:t//subsample, :] = self.encoder(
                             x[t1-block_len*subsample*chuck_len:t+1, :].unsqueeze(0), None, None, None)[0][:, block_len*chuck_len:, :]
                     else:
@@ -489,7 +488,7 @@ class E2E(E2ETransformer):
 
                         # h_pad_in plus previous h_pad
                         h_pad_in = h_pad[:, t1//subsample -
-                                         block_len*cache_len:t//subsample, :]
+                                         block_len*chuck_len:t//subsample, :]
 
                         for n_iter in range(num_iter-1):
 
