@@ -70,7 +70,6 @@ class ConvolutionModule(nn.Module):
         n_batch, time, dim = x.size()
         if bl is not None:
             self.block_len = bl
-        logging.info("conv bl:{}".format(bl))
         if self.block_len > 0:
             blen = self.block_len
             if time % blen > 0:

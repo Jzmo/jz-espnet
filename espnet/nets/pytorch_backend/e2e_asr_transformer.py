@@ -6,6 +6,7 @@
 from argparse import Namespace
 import logging
 import math
+import time
 
 import numpy
 import torch
@@ -171,7 +172,8 @@ class E2E(ASRInterface, torch.nn.Module):
         """
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
-        src_mask = make_non_pad_mask(ilens.tolist()).to(xs_pad.device).unsqueeze(-2)
+        src_mask = make_non_pad_mask(ilens.tolist()).to(
+            xs_pad.device).unsqueeze(-2)
         hs_pad, hs_mask = self.encoder(xs_pad, src_mask)
         self.hs_pad = hs_pad
 
@@ -181,7 +183,8 @@ class E2E(ASRInterface, torch.nn.Module):
                 ys_pad, self.sos, self.eos, self.ignore_id
             )
             ys_mask = target_mask(ys_in_pad, self.ignore_id)
-            pred_pad, pred_mask = self.decoder(ys_in_pad, ys_mask, hs_pad, hs_mask)
+            pred_pad, pred_mask = self.decoder(
+                ys_in_pad, ys_mask, hs_pad, hs_mask)
             self.pred_pad = pred_pad
 
             # 3. compute attention loss
@@ -201,10 +204,13 @@ class E2E(ASRInterface, torch.nn.Module):
         else:
             batch_size = xs_pad.size(0)
             hs_len = hs_mask.view(batch_size, -1).sum(1)
-            loss_ctc = self.ctc(hs_pad.view(batch_size, -1, self.adim), hs_len, ys_pad)
+            loss_ctc = self.ctc(hs_pad.view(
+                batch_size, -1, self.adim), hs_len, ys_pad)
             if not self.training and self.error_calculator is not None:
-                ys_hat = self.ctc.argmax(hs_pad.view(batch_size, -1, self.adim)).data
-                cer_ctc = self.error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+                ys_hat = self.ctc.argmax(hs_pad.view(
+                    batch_size, -1, self.adim)).data
+                cer_ctc = self.error_calculator(
+                    ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
             # for visualization
             if not self.training:
                 self.ctc.softmax(hs_pad)
@@ -266,6 +272,8 @@ class E2E(ASRInterface, torch.nn.Module):
         :return: N-best decoding results
         :rtype: list
         """
+        start = time.time()
+        logging.info("start time:{}".format(start))
         enc_output = self.encode(x).unsqueeze(0)
         if self.mtlalpha == 1.0:
             recog_args.ctc_weight = 1.0
@@ -276,10 +284,12 @@ class E2E(ASRInterface, torch.nn.Module):
 
             lpz = self.ctc.argmax(enc_output)
             collapsed_indices = [x[0] for x in groupby(lpz[0])]
-            hyp = [x for x in filter(lambda x: x != self.blank, collapsed_indices)]
+            hyp = [x for x in filter(
+                lambda x: x != self.blank, collapsed_indices)]
             nbest_hyps = [{"score": 0.0, "yseq": [self.sos] + hyp}]
             if recog_args.beam_size > 1:
-                raise NotImplementedError("Pure CTC beam search is not implemented.")
+                raise NotImplementedError(
+                    "Pure CTC beam search is not implemented.")
             # TODO(hirofumi0810): Implement beam search
             return nbest_hyps
         elif self.mtlalpha > 0 and recog_args.ctc_weight > 0.0:
@@ -315,7 +325,8 @@ class E2E(ASRInterface, torch.nn.Module):
         else:
             hyp = {"score": 0.0, "yseq": [y]}
         if lpz is not None:
-            ctc_prefix_score = CTCPrefixScore(lpz.detach().numpy(), 0, self.eos, numpy)
+            ctc_prefix_score = CTCPrefixScore(
+                lpz.detach().numpy(), 0, self.eos, numpy)
             hyp["ctc_state_prev"] = ctc_prefix_score.initial_state()
             hyp["ctc_score_prev"] = 0.0
             if ctc_weight != 1.0:
@@ -343,16 +354,19 @@ class E2E(ASRInterface, torch.nn.Module):
                 if use_jit:
                     if traced_decoder is None:
                         traced_decoder = torch.jit.trace(
-                            self.decoder.forward_one_step, (ys, ys_mask, enc_output)
+                            self.decoder.forward_one_step, (ys,
+                                                            ys_mask, enc_output)
                         )
-                    local_att_scores = traced_decoder(ys, ys_mask, enc_output)[0]
+                    local_att_scores = traced_decoder(
+                        ys, ys_mask, enc_output)[0]
                 else:
                     local_att_scores = self.decoder.forward_one_step(
                         ys, ys_mask, enc_output
                     )[0]
 
                 if rnnlm:
-                    rnnlm_state, local_lm_scores = rnnlm.predict(hyp["rnnlm_prev"], vy)
+                    rnnlm_state, local_lm_scores = rnnlm.predict(
+                        hyp["rnnlm_prev"], vy)
                     local_scores = (
                         local_att_scores + recog_args.lm_weight * local_lm_scores
                     )
@@ -373,7 +387,8 @@ class E2E(ASRInterface, torch.nn.Module):
                     )
                     if rnnlm:
                         local_scores += (
-                            recog_args.lm_weight * local_lm_scores[:, local_best_ids[0]]
+                            recog_args.lm_weight *
+                            local_lm_scores[:, local_best_ids[0]]
                         )
                     local_best_scores, joint_best_ids = torch.topk(
                         local_scores, beam, dim=1
@@ -386,10 +401,12 @@ class E2E(ASRInterface, torch.nn.Module):
 
                 for j in six.moves.range(beam):
                     new_hyp = {}
-                    new_hyp["score"] = hyp["score"] + float(local_best_scores[0, j])
+                    new_hyp["score"] = hyp["score"] + \
+                        float(local_best_scores[0, j])
                     new_hyp["yseq"] = [0] * (1 + len(hyp["yseq"]))
                     new_hyp["yseq"][: len(hyp["yseq"])] = hyp["yseq"]
-                    new_hyp["yseq"][len(hyp["yseq"])] = int(local_best_ids[0, j])
+                    new_hyp["yseq"][len(hyp["yseq"])] = int(
+                        local_best_ids[0, j])
                     if rnnlm:
                         new_hyp["rnnlm_prev"] = rnnlm_state
                     if lpz is not None:
@@ -449,7 +466,8 @@ class E2E(ASRInterface, torch.nn.Module):
             if char_list is not None:
                 for hyp in hyps:
                     logging.debug(
-                        "hypo: " + "".join([char_list[int(x)] for x in hyp["yseq"][1:]])
+                        "hypo: " + "".join([char_list[int(x)]
+                                            for x in hyp["yseq"][1:]])
                     )
 
             logging.debug("number of ended hypothes: " + str(len(ended_hyps)))
@@ -474,6 +492,7 @@ class E2E(ASRInterface, torch.nn.Module):
             "normalized log probability: "
             + str(nbest_hyps[0]["score"] / len(nbest_hyps[0]["yseq"]))
         )
+        logging.info("run time:{}".format(time.time()-start))
         return nbest_hyps
 
     def calculate_all_attentions(self, xs_pad, ilens, ys_pad):

@@ -7,7 +7,6 @@
 """Subsampling layer definition."""
 
 import torch
-
 from espnet.nets.pytorch_backend.transformer.embedding import PositionalEncoding
 
 
@@ -33,7 +32,8 @@ class Conv2dSubsampling(torch.nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
+            pos_enc if pos_enc is not None else PositionalEncoding(
+                odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
@@ -51,6 +51,9 @@ class Conv2dSubsampling(torch.nn.Module):
 
         """
         x = x.unsqueeze(1)  # (b, c, t, f)
+        # need to be fixed
+        if x.size(2) % 4 == 0:
+            x = torch.nn.functional.pad(x, (0, 0, 2, 2))
         x = self.conv(x)
         b, c, t, f = x.size()
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))
@@ -66,7 +69,8 @@ class Conv2dSubsampling(torch.nn.Module):
 
         """
         if key != -1:
-            raise NotImplementedError("Support only `-1` (for `reset_parameters`).")
+            raise NotImplementedError(
+                "Support only `-1` (for `reset_parameters`).")
         return self.out[key]
 
 
@@ -92,7 +96,8 @@ class Conv2dSubsampling6(torch.nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 1) // 2 - 2) // 3), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
+            pos_enc if pos_enc is not None else PositionalEncoding(
+                odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
@@ -141,8 +146,10 @@ class Conv2dSubsampling8(torch.nn.Module):
             torch.nn.ReLU(),
         )
         self.out = torch.nn.Sequential(
-            torch.nn.Linear(odim * ((((idim - 1) // 2 - 1) // 2 - 1) // 2), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
+            torch.nn.Linear(
+                odim * ((((idim - 1) // 2 - 1) // 2 - 1) // 2), odim),
+            pos_enc if pos_enc is not None else PositionalEncoding(
+                odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
