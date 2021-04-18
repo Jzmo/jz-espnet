@@ -23,10 +23,9 @@ resume=        # Resume the training from snapshot
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_conformer_maskctc.yaml
+train_config=conf/tuning/train_pytorch_conformer_maskctc_block_bl16_se.yaml
 lm_config=conf/lm.yaml
-#decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_bl16.yaml
-decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_bl16.yaml
+decode_config=conf/tuning/decode_pytorch_transformer_maskctc_latency.yaml
 
 # rnnlm related
 skip_lm_training=true   # for only using end-to-end ASR model without LM
@@ -35,7 +34,7 @@ lmtag=                  # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-use_stearming=true
+use_stearming=false
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
@@ -58,7 +57,7 @@ set -o pipefail
 
 train_set=train_trim_sp
 train_dev=dev_trim
-recog_set="dev test"
+recog_set="dev"
 
 if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
     echo "stage -1: Data Download"
@@ -217,7 +216,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 fi
 
 if ${use_stearming}; then
-    recog_set="dev_unsegmented test_unsegmented"
+    recog_set="dev_unsegmented" # test_unsegmented"
 fi
 
 
@@ -236,11 +235,11 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         else
             recog_model=model.last${n_average}.avg.best
         fi
-	#average_checkpoints.py --backend ${backend} \
-	#    --snapshots ${expdir}/results/snapshot.ep.* \
-	#    --out ${expdir}/results/${recog_model} \
-	#    --num ${n_average} \
-	#    ${average_opts}
+	average_checkpoints.py --backend ${backend} \
+	    --snapshots ${expdir}/results/snapshot.ep.* \
+	    --out ${expdir}/results/${recog_model} \
+	    --num ${n_average} \
+	    ${average_opts}
     fi
 
     pids=() # initialize pids
