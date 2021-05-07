@@ -10,20 +10,20 @@ set -x
 
 # general configuration
 backend=pytorch
-stage=4       # start from -1 if you need to start from data download
+stage=5       # start from -1 if you need to start from data download
 stop_stage=5
 ngpu=1         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
 N=0            # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
-verbose=0      # verbose option
+verbose=1      # verbose option
 resume=        # Resume the training from snapshot
 
 # feature configuration
 do_delta=false
 
 preprocess_config=conf/specaug.yaml
-train_config=conf/tuning/train_pytorch_conformer_maskctc_block_bl16_se.yaml
+train_config=conf/tuning/train_pytorch_conformer_maskctc_block_bl16.yaml
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc_latency.yaml
 
@@ -34,7 +34,7 @@ lmtag=                  # tag for managing LMs
 
 # decoding parameter
 recog_model=model.acc.best # set a model to be used for decoding: 'model.acc.best' or 'model.loss.best'
-use_stearming=false
+use_stearming=true
 # model average realted (only for transformer)
 n_average=10                 # the number of ASR models to be averaged
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
@@ -235,11 +235,11 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         else
             recog_model=model.last${n_average}.avg.best
         fi
-	average_checkpoints.py --backend ${backend} \
-	    --snapshots ${expdir}/results/snapshot.ep.* \
-	    --out ${expdir}/results/${recog_model} \
-	    --num ${n_average} \
-	    ${average_opts}
+	#average_checkpoints.py --backend ${backend} \
+	#    --snapshots ${expdir}/results/snapshot.ep.* \
+	#    --out ${expdir}/results/${recog_model} \
+	#    --num ${n_average} \
+	#    ${average_opts}
     fi
 
     pids=() # initialize pids
@@ -288,7 +288,7 @@ fi
 set -x 
 if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
     dir=data/
-    recog_set="dev test"
+    recog_set="dev"
     for task in ${recog_set}; do
 	task_new=${task}_unsegmented
 	if [ -d "${dir}/${task_new}" ]; then
