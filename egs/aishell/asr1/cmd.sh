@@ -28,7 +28,7 @@
 
 
 # Select the backend used by run.sh from "local", "sge", "slurm", or "ssh"
-cmd_backend='local'
+cmd_backend='slurm'
 
 # Local machine, without any Job scheduling system
 if [ "${cmd_backend}" = local ]; then
@@ -59,8 +59,8 @@ elif [ "${cmd_backend}" = slurm ]; then
     # You can use "--gpu * " by defualt for slurm and it is interpreted as "--gres gpu:*"
     # The devices are allocated exclusively using "${CUDA_VISIBLE_DEVICES}".
 
-    export train_cmd="slurm.pl"
-    export cuda_cmd="slurm.pl"
+    export train_cmd="slurm.pl --time 6:0:0 --config conf/slurm.conf"
+    export cuda_cmd="slurm.pl --config conf/slurm_gpu.conf"
     export decode_cmd="slurm.pl"
 
 elif [ "${cmd_backend}" = ssh ]; then

@@ -3,7 +3,7 @@
 # Copyright   2014  Johns Hopkins University (author: Daniel Povey)
 #             2017  Xingyu Na
 # Apache 2.0
-
+set -x
 remove_archive=false
 
 if [ "$1" == --remove-archive ]; then
