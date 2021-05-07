@@ -32,8 +32,7 @@ class Conv2dSubsampling(torch.nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(
-                odim, dropout_rate),
+            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
@@ -69,8 +68,7 @@ class Conv2dSubsampling(torch.nn.Module):
 
         """
         if key != -1:
-            raise NotImplementedError(
-                "Support only `-1` (for `reset_parameters`).")
+            raise NotImplementedError("Support only `-1` (for `reset_parameters`).")
         return self.out[key]
 
 
@@ -96,8 +94,7 @@ class Conv2dSubsampling6(torch.nn.Module):
         )
         self.out = torch.nn.Sequential(
             torch.nn.Linear(odim * (((idim - 1) // 2 - 2) // 3), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(
-                odim, dropout_rate),
+            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):
@@ -146,10 +143,8 @@ class Conv2dSubsampling8(torch.nn.Module):
             torch.nn.ReLU(),
         )
         self.out = torch.nn.Sequential(
-            torch.nn.Linear(
-                odim * ((((idim - 1) // 2 - 1) // 2 - 1) // 2), odim),
-            pos_enc if pos_enc is not None else PositionalEncoding(
-                odim, dropout_rate),
+            torch.nn.Linear(odim * ((((idim - 1) // 2 - 1) // 2 - 1) // 2), odim),
+            pos_enc if pos_enc is not None else PositionalEncoding(odim, dropout_rate),
         )
 
     def forward(self, x, x_mask):

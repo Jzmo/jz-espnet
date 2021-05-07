@@ -233,7 +233,7 @@ class TasNet(AbsEnhancement):
 
 
 class Encoder(nn.Module):
-    """Estimation of the nonnegative mixture weight by a 1-D conv layer. """
+    """Estimation of the nonnegative mixture weight by a 1-D conv layer."""
 
     def __init__(self, L, N):
         super(Encoder, self).__init__()
@@ -452,7 +452,7 @@ class DepthwiseSeparableConv(nn.Module):
 
 
 class Chomp1d(nn.Module):
-    """To ensure the output length is the same as the input. """
+    """To ensure the output length is the same as the input."""
 
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
