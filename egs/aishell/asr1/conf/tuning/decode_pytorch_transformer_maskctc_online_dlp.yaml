@@ -1,0 +1,6 @@
+batchsize: 0
+
+# maskctc specific
+maskctc-filter-ctc-probability: false
+maskctc-probability-threshold: 0.2
+

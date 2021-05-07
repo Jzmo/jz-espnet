@@ -263,7 +263,6 @@ class RelBlockMultiHeadedAttention(nn.Module):
         n_batch, klen, dim = key.size()
         if block_len is not None:
             self.block_len = block_len
-        logging.info("attn block_len:{}".format(self.block_len))
         # exit()
         if self.block_len > 0:
             if query.size(1) != key.size(1):

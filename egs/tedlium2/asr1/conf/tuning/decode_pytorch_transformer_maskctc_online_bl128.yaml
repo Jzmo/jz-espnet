@@ -2,4 +2,5 @@ batchsize: 0
 
 # maskctc specific
 maskctc-n-iterations: 10
-maskctc-probability-threshold: 0.99
+maskctc-probability-threshold: 0.9
+block_length: 128
