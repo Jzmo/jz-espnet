@@ -10,7 +10,10 @@ from espnet.nets.pytorch_backend.transformer.decoder import Decoder
 from espnet.nets.pytorch_backend.nets_utils import th_accuracy
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask
 from espnet.nets.pytorch_backend.maskctc.mask import square_mask
-from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform, mask_uniform_dlp
+from espnet.nets.pytorch_backend.maskctc.add_mask_token import (
+    mask_uniform,
+    mask_uniform_dlp,
+)
 from espnet.nets.pytorch_backend.e2e_asr_transformer import E2E as E2ETransformer
 from espnet.nets.pytorch_backend.e2e_asr_maskctc import E2E as E2EMaskctc
 from espnet.nets.pytorch_backend.e2e_asr import CTC_LOSS_THRESHOLD
@@ -26,6 +29,7 @@ import time
 import math
 import logging
 from itertools import groupby
+
 # Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
 """
@@ -39,16 +43,19 @@ See https://arxiv.org/abs/2005.08700 for the detail.
 from espnet.nets.pytorch_backend.conformer.argument import (
     add_arguments_conformer_common,  # noqa: H301
 )
+
 # from espnet.nets.pytorch_backend.maskctc.add_mask_token import mask_uniform2 as mask_uniform
 from espnet.nets.pytorch_backend.transformer.label_smoothing_loss import (
-        LabelSmoothingLoss,  # noqa: H301
-    )
+    LabelSmoothingLoss,  # noqa: H301
+)
 
 
 class DLPReporter(chainer.Chain):
     """A chainer reporter wrapper."""
 
-    def report(self, loss_ctc, loss_att, acc, loss_dlp, acc_dlp, cer_ctc, cer, wer, mtl_loss):
+    def report(
+        self, loss_ctc, loss_att, acc, loss_dlp, acc_dlp, cer_ctc, cer, wer, mtl_loss
+    ):
         """Report at every step."""
         reporter.report({"loss_ctc": loss_ctc}, self)
         reporter.report({"loss_att": loss_att}, self)
@@ -106,8 +113,10 @@ class E2E(E2ETransformer):
 
         group.add_argument(
             "--block-length",
-            default=32, type=int,
-            help='Number of encoder layers (for shared recognition part in multi-speaker asr mode)')
+            default=32,
+            type=int,
+            help="Number of encoder layers (for shared recognition part in multi-speaker asr mode)",
+        )
 
         return parser
 
@@ -162,7 +171,7 @@ class E2E(E2ETransformer):
                 positional_dropout_rate=args.dropout_rate,
                 self_attention_dropout_rate=args.transformer_attn_dropout_rate,
                 src_attention_dropout_rate=args.transformer_attn_dropout_rate,
-                use_output_layer=False  # raw output
+                use_output_layer=False,  # raw output
             )
             self.decoder_output_layer = torch.nn.Linear(args.adim, odim)
             self.dlp_layer = torch.nn.Linear(args.adim, 50)
@@ -199,11 +208,11 @@ class E2E(E2ETransformer):
 
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
-        src_mask = make_non_pad_mask(ilens.tolist()).to(
-            xs_pad.device).unsqueeze(-2)
+        src_mask = make_non_pad_mask(ilens.tolist()).to(xs_pad.device).unsqueeze(-2)
 
         hs_pad, hs_mask, _, _, bl = self.encoder(
-            xs_pad, src_mask, None, None, bl=block_len)
+            xs_pad, src_mask, None, None, bl=block_len
+        )
         self.hs_pad = hs_pad
 
         # 2. forward decoder
@@ -229,13 +238,10 @@ class E2E(E2ETransformer):
         if self.mtlalpha > 0:
             batch_size = xs_pad.size(0)
             hs_len = hs_mask.view(batch_size, -1).sum(1)
-            loss_ctc = self.ctc(hs_pad.view(
-                batch_size, -1, self.adim), hs_len, ys_pad)
+            loss_ctc = self.ctc(hs_pad.view(batch_size, -1, self.adim), hs_len, ys_pad)
             if self.error_calculator is not None:
-                ys_hat = self.ctc.argmax(hs_pad.view(
-                    batch_size, -1, self.adim)).data
-                cer_ctc = self.error_calculator(
-                    ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+                ys_hat = self.ctc.argmax(hs_pad.view(batch_size, -1, self.adim)).data
+                cer_ctc = self.error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
             # for visualization
             if not self.training:
                 self.ctc.softmax(hs_pad)
@@ -267,10 +273,10 @@ class E2E(E2ETransformer):
     def forward_dlp(self, xs_pad, ilens, ys_pad, block_len):
         # 1. forward encoder
         xs_pad = xs_pad[:, : max(ilens)]  # for data parallel
-        src_mask = make_non_pad_mask(ilens.tolist()).to(
-            xs_pad.device).unsqueeze(-2)
+        src_mask = make_non_pad_mask(ilens.tolist()).to(xs_pad.device).unsqueeze(-2)
         hs_pad, hs_mask, _, _, bl = self.encoder(
-            xs_pad, src_mask, None, None, bl=block_len)
+            xs_pad, src_mask, None, None, bl=block_len
+        )
         logging.info("check the output size:{}".format(hs_pad.size()))
         self.hs_pad = hs_pad
 
@@ -295,7 +301,8 @@ class E2E(E2ETransformer):
         )
         ys_mask_dlp = square_mask(ys_in_pad_dlp, self.eos)
         pred_pad_dlp, _ = self.decoder(
-            ys_in_pad_dlp, ys_mask_dlp, hs_pad.repeat(2, 1, 1), hs_mask.repeat(2, 1, 1))
+            ys_in_pad_dlp, ys_mask_dlp, hs_pad.repeat(2, 1, 1), hs_mask.repeat(2, 1, 1)
+        )
         pred_pad_dlp = self.dlp_layer(pred_pad_dlp)
 
         loss_dlp = self.dlp_criterion(pred_pad_dlp, ys_out_pad_dlp)
@@ -308,13 +315,10 @@ class E2E(E2ETransformer):
         if self.mtlalpha > 0:
             batch_size = xs_pad.size(0)
             hs_len = hs_mask.view(batch_size, -1).sum(1)
-            loss_ctc = self.ctc(hs_pad.view(
-                batch_size, -1, self.adim), hs_len, ys_pad)
+            loss_ctc = self.ctc(hs_pad.view(batch_size, -1, self.adim), hs_len, ys_pad)
             if self.error_calculator is not None:
-                ys_hat = self.ctc.argmax(hs_pad.view(
-                    batch_size, -1, self.adim)).data
-                cer_ctc = self.error_calculator(
-                    ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
+                ys_hat = self.ctc.argmax(hs_pad.view(batch_size, -1, self.adim)).data
+                cer_ctc = self.error_calculator(ys_hat.cpu(), ys_pad.cpu(), is_ctc=True)
             # for visualization
             if not self.training:
                 self.ctc.softmax(hs_pad)
@@ -336,13 +340,21 @@ class E2E(E2ETransformer):
             loss_att_data = float(loss_att)
             loss_ctc_data = float(loss_ctc)
 
-        self.loss += (self.dlp_weight * loss_dlp)
+        self.loss += self.dlp_weight * loss_dlp
         loss_dlp_data = float(loss_dlp)
 
         loss_data = float(self.loss)
         if loss_data < CTC_LOSS_THRESHOLD and not math.isnan(loss_data):
             self.reporter.report(
-                loss_ctc_data, loss_att_data, self.acc, loss_dlp_data, self.acc_dlp, cer_ctc, cer, wer, loss_data
+                loss_ctc_data,
+                loss_att_data,
+                self.acc,
+                loss_dlp_data,
+                self.acc_dlp,
+                cer_ctc,
+                cer,
+                wer,
+                loss_data,
             )
         else:
             logging.warning("loss (=%f) is not correct", loss_data)
@@ -360,7 +372,8 @@ class E2E(E2ETransformer):
         """
         if self.dlp_weight > 0:
             logging.info(
-                "shrink-and-expand decoding based on dynamic length prediction")
+                "shrink-and-expand decoding based on dynamic length prediction"
+            )
             return self.recognize_dlp(x, recog_args, char_list, rnnlm)
 
         def num2str(char_list, mask_token, mask_char="_"):
@@ -374,13 +387,12 @@ class E2E(E2ETransformer):
 
         x = torch.as_tensor(x)
         self.eval()
-        logging.info(
-            "check model state mask token: {}".format(self.mask_token))
+        logging.info("check model state mask token: {}".format(self.mask_token))
         # h = self.encode(x).unsqueeze(0)
         # block_len recog_args.xl_decode_block_length
         block_len = int(recog_args.block_length)
         logging.info("bl:{}".format(block_len))
-        bh = block_len//2
+        bh = block_len // 2
         # chuck_len = recog_args.xl_decode_chuck_length
         chuck_len = 1
         subsample = 4
@@ -390,12 +402,14 @@ class E2E(E2ETransformer):
         start = time.time()
         logging.warning("start time:{}".format(start))
         if decode_mode == "online":
-            x = x[:x.size(0)//subsample * subsample, :]
-            h_pad = torch.zeros(x.size(0)//subsample,
-                                self.adim, dtype=x.dtype).unsqueeze(0)
+            x = x[: x.size(0) // subsample * subsample, :]
+            h_pad = torch.zeros(
+                x.size(0) // subsample, self.adim, dtype=x.dtype
+            ).unsqueeze(0)
 
             logging.info(
-                "length length//4 {} {}".format(x.size(0), x.size(0)//subsample))
+                "length length//4 {} {}".format(x.size(0), x.size(0) // subsample)
+            )
 
             hyp_new = [self.sos]
             t0 = 0
@@ -411,89 +425,112 @@ class E2E(E2ETransformer):
             rt, rp = None, None
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
-                if (t+1) % (bh * subsample) == 0 or (t == x.size(0) - 1 and t1//subsample < (t+1)//subsample):
+                if (t + 1) % (bh * subsample) == 0 or (
+                    t == x.size(0) - 1 and t1 // subsample < (t + 1) // subsample
+                ):
 
-                    # logging.info("chunking feat {} {} {}".format(
-                    #    t1, t+1, x[t1:t+1, :].size()))
-
-                    if t1 >= block_len * subsample * (chuck_len + 1/2):
+                    logging.info(
+                        "chunking feat {} {} {}".format(
+                            t1, t + 1, x[t1 : t + 1, :].size()
+                        )
+                    )
+                    if t1 >= block_len * subsample * (chuck_len + 1 / 2):
                         # after first block
-                        hs = self.encoder(x[t1-block_len*subsample*chuck_len - bh*subsample:t+1, :]
-                                          .unsqueeze(0), None, None, None)[0][:, block_len*chuck_len:, :]
+                        hs = self.encoder(
+                            x[
+                                t1
+                                - block_len * subsample * chuck_len
+                                - bh * subsample : t
+                                + 1,
+                                :,
+                            ].unsqueeze(0),
+                            None,
+                            None,
+                            None,
+                        )[0][:, block_len * chuck_len :, :]
                     else:
-                        hs = self.encoder(x[:t+1, :]
-                                          .unsqueeze(0), None, None, None)[0][:, (t+1)//subsample-block_len:, ]
+                        hs = self.encoder(x[: t + 1, :].unsqueeze(0), None, None, None)[
+                            0
+                        ][
+                            :,
+                            (t + 1) // subsample - block_len :,
+                        ]
                     if t1 >= block_len * subsample // 2:
                         t0 = t1 - block_len * subsample // 2
                     else:
                         t0 = t1
-                    try:
-                        h_pad[:, t0//subsample:(t+1)//subsample, :] = hs
-                    except:
-                        pass
+
+                    h_pad[:, t0 // subsample : (t + 1) // subsample, :] = hs
 
                     # pdb.set_trace()
                     # greedy ctc output
-                    # logging.info("intervel: {}, {}".format(
-                    #    t1//subsample, t//subsample))
+                    logging.info(
+                        "intervel: {}, {}".format(t1 // subsample, t // subsample)
+                    )
 
-                    ctc_probs_curr, ctc_ids_curr = torch.exp(self.ctc.log_softmax(
-                        hs)).max(dim=-1)
+                    ctc_probs_curr, ctc_ids_curr = torch.exp(
+                        self.ctc.log_softmax(hs)
+                    ).max(dim=-1)
                     if ctc_ids_curr.size(1) % bh > 0:
 
                         res = ctc_ids_curr.size(1) % bh
                         ctc_probs_curr = torch.nn.functional.pad(
-                            ctc_probs_curr, (0, bh-res))
+                            ctc_probs_curr, (0, bh - res)
+                        )
                         ctc_ids_curr = torch.nn.functional.pad(
-                            ctc_ids_curr, (0, bh-res))
-
-                        try:
-                            if (sum(sum(ctc_ids_curr))) > 0:
-                                logging.warning("lat1:{}".format(bh-res))
-                                # ctc_ids_curr.size(1))ctc_ids_curr.size(1) -
-                                # numpy.max(numpy.nonzero(ctc_ids_curr[0].tolist()))))
-                            else:
-                                logging.warning("lat2:{}".format(-res))
-                                # block_len + ctc_ids_curr.size(1) -
-                                #                 numpy.max(numpy.nonzero(ctc_ids_prev[0].tolist()))))
-                        except:
-                            logging.warning('no lat:{}, {}'.format(
-                                ctc_ids_curr, ctc_ids_prev))
+                            ctc_ids_curr, (0, bh - res)
+                        )
+                        if (sum(sum(ctc_ids_curr))) > 0:
+                            logging.warning("lat1:{}".format(ctc_ids_curr[0].tolist()))
+                        else:
+                            logging.warning("lat2:{}".format(ctc_ids_prev[0].tolist()))
 
                     # get the y_hat and token level probs
                     y_hat_curr, probs_hat_curr, cidx = get_token_level_ids_probs(
-                        ctc_ids_curr, ctc_probs_curr)
+                        ctc_ids_curr, ctc_probs_curr
+                    )
                     # get pairs
 
                     if t1 >= block_len * subsample:
-
+                        logging.info("1:{}".format(y_hat_prev[cidx_prev:]))
+                        logging.info("2:{}".format(y_hat_curr[:cidx]))
                         # dp, pairs, probs, tensor1, tensor2 = dynamic_matching_xl(
-                        dp, pairs, probs, tensor1, tensor2, rt, rp = dynamic_matching_xl2(
+                        (
+                            dp,
+                            pairs,
+                            probs,
+                            tensor1,
+                            tensor2,
+                            rt,
+                            rp,
+                        ) = dynamic_matching_xl2(
                             y_hat_prev[cidx_prev:],
                             y_hat_curr[:cidx],
                             probs_hat_prev[cidx_prev:],
                             probs_hat_curr[:cidx],
-                            None, tensor1, tensor2,
-                            rt, rp)
+                            None,
+                            tensor1,
+                            tensor2,
+                            rt,
+                            rp,
+                        )
 
                         y_hat, probs_hat = tie_breaking(pairs, probs)
-                        '''
-                        logging.info('pair:{}'.format(pairs))
-                        logging.info('map:{}'.format(y_hat))
-                        '''
+                        logging.info("pair:{}".format(pairs))
+                        logging.info("map:{}".format(y_hat))
+
                     else:
                         y_hat = y_hat_curr[:cidx, 0]
                         probs_hat = probs_hat_curr[:cidx]
                     # assign prev y_hat
                     if t1 >= block_len * subsample // 2:
                         y_hat_prev = y_hat_curr.clone().detach()
-                        probs_hat_prev = probs_hat_curr.clone(
-                        ).detach()
+                        probs_hat_prev = probs_hat_curr.clone().detach()
                         cidx_prev = cidx
                         ctc_ids_prev = ctc_ids_curr.clone().detach()
                     y_idx = torch.nonzero(y_hat != 0).squeeze(-1)
 
-                    # mask ctc output based on ctc probablities
+                    # mapsk ctc output based on ctc probablities
                     p_thres = recog_args.maskctc_probability_threshold
                     mask = torch.tensor(probs_hat[y_idx] < p_thres)
                     # if len(mask) > 0:
@@ -503,89 +540,104 @@ class E2E(E2ETransformer):
                     mask_num = len(mask_idx)
                     mask_num_concat = 0
                     iter_decode = False
-                    if recog_args.maskctc_n_iterations > 0 and (t1) % (block_len * subsample * (1+cache_len) // 2) == 0 and t1 > 0:
+                    if (t1) % (
+                        block_len * subsample * (1 + cache_len) // 2
+                    ) == 0 and t1 > 0:
 
                         iter_decode = True
                         if cache_len > 0:
-                            hist_length = sum(
-                                y_in_length_cache[-cache_len:])
+                            hist_length = sum(y_in_length_cache[-cache_len:])
                         else:
                             hist_length = 0
-                        mask_hist = mask_cache[len(mask_cache) - hist_length:]
+                        mask_hist = mask_cache[len(mask_cache) - hist_length :]
 
                         mask_idx_concat = torch.nonzero(
-                            torch.cat([mask_hist, mask])).squeeze(-1)
+                            torch.cat([mask_hist, mask])
+                        ).squeeze(-1)
                         mask_num_concat = len(mask_idx_concat)
 
-                    y_in = torch.zeros(
-                        1, len(y_idx), dtype=torch.long) + self.mask_token
+                    y_in = (
+                        torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
+                    )
 
                     y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
 
-                    # logging.info("init msk:{}".format(n2s(y_in[0].tolist())))
+                    logging.info("init msk:{}".format(n2s(y_in[0].tolist())))
                     # iterative decoding
 
-                    if mask_num_concat > 0 and recog_args.maskctc_n_iterations > 0 and iter_decode:
+                    if (
+                        mask_num_concat > 0
+                        and recog_args.maskctc_n_iterations > 0
+                        and iter_decode
+                    ):
                         K = recog_args.maskctc_n_iterations
 
-                        y_in_hist = y_in_cache[:, y_in_cache.size(
-                            1) - hist_length:].clone()
-                        # logging.info("y_in_hist:{}".format(y_in_hist.size()))
+                        y_in_hist = y_in_cache[
+                            :, y_in_cache.size(1) - hist_length :
+                        ].clone()
+                        logging.info("y_in_hist:{}".format(y_in_hist.size()))
                         y_in_hist[0][mask_hist] = self.mask_token
                         y_in_concat = torch.cat([y_in_hist, y_in], dim=-1)
                         # mask_idx_concat = torch.nonzero(
                         #    torch.cat([mask_hist, mask]))
                         # mask_num = len(mask_idx_concat)
-                        num_iter = K if mask_num_concat >= K and K > 0 else mask_num_concat
+                        num_iter = (
+                            K if mask_num_concat >= K and K > 0 else mask_num_concat
+                        )
 
                         # h_pad_in plus previous h_pad
-                        if t1 >= bh*subsample*(3+cache_len):
-                            h_pad_in = self.encoder(x[t1-bh*subsample*(3+cache_len):t1-1, :]
-                                                    .unsqueeze(0), None, None, None)[0][:, block_len:, :]
+                        if t1 >= bh * subsample * (3 + cache_len):
+                            h_pad_in = self.encoder(
+                                x[
+                                    t1 - bh * subsample * (3 + cache_len) : t1 - 1, :
+                                ].unsqueeze(0),
+                                None,
+                                None,
+                                None,
+                            )[0][:, block_len:, :]
                         else:
-                            h_pad_in = self.encoder(x[:t1-1, :]
-                                                    .unsqueeze(0), None, None, None)[0]
+                            h_pad_in = self.encoder(
+                                x[: t1 - 1, :].unsqueeze(0), None, None, None
+                            )[0]
 
-                        for n_iter in range(num_iter-1):
+                        for n_iter in range(num_iter - 1):
 
-                            pred, _ = self.decoder(
-                                y_in_concat, None, h_pad_in, None)
-                            pred_score, pred_id = pred[0][mask_idx_concat].max(
-                                dim=-1)
+                            pred, _ = self.decoder(y_in_concat, None, h_pad_in, None)
+                            pred_score, pred_id = pred[0][mask_idx_concat].max(dim=-1)
 
                             cand = torch.topk(
-                                pred_score, mask_num_concat // num_iter, -1)[1]
+                                pred_score, mask_num_concat // num_iter, -1
+                            )[1]
 
-                            y_in_concat[0][mask_idx_concat[cand]
-                                           ] = pred_id[cand]
+                            y_in_concat[0][mask_idx_concat[cand]] = pred_id[cand]
                             mask_idx_concat = torch.nonzero(
-                                y_in_concat[0] == self.mask_token).squeeze(-1)
-                            logging.info("msk1:{}".format(
-                                n2s(y_in_concat[0].tolist())))
+                                y_in_concat[0] == self.mask_token
+                            ).squeeze(-1)
+                            logging.info("msk1:{}".format(n2s(y_in_concat[0].tolist())))
                         # edit leftover masks (|masks| < mask_num // num_iter)
                         pred, pred_mask = self.decoder(
-                            y_in_concat, None, h_pad_in, None)
+                            y_in_concat, None, h_pad_in, None
+                        )
                         pred_score, pred_id = pred[0].max(dim=-1)
                         y_in_concat[0][mask_idx_concat] = pred_id[mask_idx_concat]
-                        # logging.info("msk:{}".format(
-                        #    n2s(y_in_concat[0].tolist())))
+                        logging.info("msk:{}".format(n2s(y_in_concat[0].tolist())))
                         # pdb.set_trace()
                         # history decoder output
-                        ret[len(ret)-hist_length:] = y_in_concat.tolist()[0]
+                        ret[len(ret) - hist_length :] = y_in_concat.tolist()[0]
                         # pdb.set_trace()
                     else:
-                        pred_score = torch.zeros(
-                            (y_in.size(1),), dtype=torch.float) + 100
+                        pred_score = (
+                            torch.zeros((y_in.size(1),), dtype=torch.float) + 100
+                        )
                         y_in[0] = y_hat[y_idx]
                         ret = ret + y_in.tolist()[0]
-                        # logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
-                    mask_cache = torch.cat(
-                        [mask_cache, mask], dim=0)
-                    pred_score_cache = torch.cat(
-                        [pred_score_cache, pred_score])
+                        logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
+                    mask_cache = torch.cat([mask_cache, mask], dim=0)
+                    pred_score_cache = torch.cat([pred_score_cache, pred_score])
                     y_in_cache = torch.cat([y_in_cache, y_in], dim=-1)
                     y_in_length_cache.append(y_in.size(1))
-                    t1 = t+1
+                    t1 = t + 1
+
                     # pdb.set_trace()
                 if t == x.size(0) - 1:
                     break
@@ -615,12 +667,10 @@ class E2E(E2ETransformer):
             # mask ctc outputs based on ctc probabilities
             p_thres = recog_args.maskctc_probability_threshold
             mask_idx = torch.nonzero(probs_hat[y_idx] < p_thres).squeeze(-1)
-            confident_idx = torch.nonzero(
-                probs_hat[y_idx] >= p_thres).squeeze(-1)
+            confident_idx = torch.nonzero(probs_hat[y_idx] >= p_thres).squeeze(-1)
             mask_num = len(mask_idx)
 
-            y_in = torch.zeros(
-                1, len(y_idx), dtype=torch.long) + self.mask_token
+            y_in = torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
             y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
 
             # logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
@@ -635,17 +685,22 @@ class E2E(E2ETransformer):
                     pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
                     cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
                     y_in[0][mask_idx[cand]] = pred_id[cand]
-                    mask_idx = torch.nonzero(
-                        y_in[0] == self.mask_token).squeeze(-1)
+                    mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
 
                     logging.info("msk:{}".format(n2s(y_in[0].tolist())))
-                    logging.info("mask_idx, pred:{}, {}".format(
-                        mask_idx, pred[0][mask_idx].argmax(dim=-1)))
+                    logging.info(
+                        "mask_idx, pred:{}, {}".format(
+                            mask_idx, pred[0][mask_idx].argmax(dim=-1)
+                        )
+                    )
 
                 # predict leftover masks (|masks| < mask_num // num_iter)
                 pred, pred_mask = self.decoder(y_in, None, h, None)
-                logging.info("mask_idx, pred:{}, {}".format(
-                    mask_idx, pred[0][mask_idx].argmax(dim=-1)))
+                logging.info(
+                    "mask_idx, pred:{}, {}".format(
+                        mask_idx, pred[0][mask_idx].argmax(dim=-1)
+                    )
+                )
                 y_in[0][mask_idx] = pred[0][mask_idx].argmax(dim=-1)
 
             # logging.info("msk:{}".format(n2s(y_in[0].tolist())))
@@ -656,8 +711,7 @@ class E2E(E2ETransformer):
 
         # todo:
         # when reach some point, get ctc output and iteratively refine with decoder
-        logging.warning("running time:{}".format(time.time()-start))
-        logging.warning("rtf:{}".format(x.size(0)/100))
+        logging.warning("running time:{}".format(time.time() - start))
         hyp = {"score": 0.0, "yseq": [self.sos] + ret + [self.eos]}
         return [hyp]
 
@@ -673,7 +727,7 @@ class E2E(E2ETransformer):
         x = torch.as_tensor(x)
         self.eval()
         block_len = 16
-        bh = block_len//2
+        bh = block_len // 2
         # chuck_len = recog_args.xl_decode_chuck_length
         chuck_len = 1
         subsample = 4
@@ -681,12 +735,14 @@ class E2E(E2ETransformer):
         decode_mode = "online"
         logging.info("self.odim is {}".format(self.odim))
         if decode_mode == "online":
-            x = x[:x.size(0)//subsample * subsample, :]
-            h_pad = torch.zeros(x.size(0)//subsample,
-                                self.adim, dtype=x.dtype).unsqueeze(0)
+            x = x[: x.size(0) // subsample * subsample, :]
+            h_pad = torch.zeros(
+                x.size(0) // subsample, self.adim, dtype=x.dtype
+            ).unsqueeze(0)
 
             logging.info(
-                "length length//4 {} {}".format(x.size(0), x.size(0)//subsample))
+                "length length//4 {} {}".format(x.size(0), x.size(0) // subsample)
+            )
 
             hyp_new = [self.sos]
             t0 = 0
@@ -701,30 +757,52 @@ class E2E(E2ETransformer):
             dp, tensor1, tensor2 = None, None, None
             for t in range(x.size(0)):
                 # with streaming input, get the hidden output of encoder
-                if (t+1) % (block_len * subsample // 2) == 0 or (t == x.size(0) - 1 and t1//subsample < (t+1)//subsample):
-                    logging.info("chunking feat {} {} {}".format(
-                        t1, t+1, x[t1:t+1, :].size()))
-                    if t1 >= block_len * subsample * (chuck_len + 1/2):
+                if (t + 1) % (block_len * subsample // 2) == 0 or (
+                    t == x.size(0) - 1 and t1 // subsample < (t + 1) // subsample
+                ):
+                    logging.info(
+                        "chunking feat {} {} {}".format(
+                            t1, t + 1, x[t1 : t + 1, :].size()
+                        )
+                    )
+                    if t1 >= block_len * subsample * (chuck_len + 1 / 2):
                         # after first block
-                        hs = self.encoder(x[t1-block_len*subsample*chuck_len - bh*subsample:t+1, :]
-                                          .unsqueeze(0), None, None, None)[0][:, block_len*chuck_len:, :]
+                        hs = self.encoder(
+                            x[
+                                t1
+                                - block_len * subsample * chuck_len
+                                - bh * subsample : t
+                                + 1,
+                                :,
+                            ].unsqueeze(0),
+                            None,
+                            None,
+                            None,
+                        )[0][:, block_len * chuck_len :, :]
                     else:
-                        hs = self.encoder(x[:t+1, :]
-                                          .unsqueeze(0), None, None, None)[0][:, (t+1)//subsample-block_len:, ]
+                        hs = self.encoder(x[: t + 1, :].unsqueeze(0), None, None, None)[
+                            0
+                        ][
+                            :,
+                            (t + 1) // subsample - block_len :,
+                        ]
                     if t1 >= block_len * subsample // 2:
                         t0 = t1 - block_len * subsample // 2
                     else:
                         t0 = t1
-                    h_pad[:, t0//subsample:(t+1)//subsample, :] = hs
+                    h_pad[:, t0 // subsample : (t + 1) // subsample, :] = hs
                     # greedy ctc output
-                    logging.info("intervel: {}, {}".format(
-                        t1//subsample, t//subsample))
+                    logging.info(
+                        "intervel: {}, {}".format(t1 // subsample, t // subsample)
+                    )
 
-                    ctc_probs_curr, ctc_ids_curr = torch.exp(self.ctc.log_softmax(
-                        hs)).max(dim=-1)
+                    ctc_probs_curr, ctc_ids_curr = torch.exp(
+                        self.ctc.log_softmax(hs)
+                    ).max(dim=-1)
                     # get the y_hat and token level probs
                     y_hat_curr, probs_hat_curr, cidx = get_token_level_ids_probs(
-                        ctc_ids_curr, ctc_probs_curr)
+                        ctc_ids_curr, ctc_probs_curr
+                    )
                     # get pairs
                     if t1 >= block_len * subsample:
                         dp, pairs, probs, tensor1, tensor2 = dynamic_matching_xl(
@@ -732,7 +810,10 @@ class E2E(E2ETransformer):
                             y_hat_curr[:cidx],
                             probs_hat_prev[cidx_prev:],
                             probs_hat_curr[:cidx],
-                            None, tensor1, tensor2)
+                            None,
+                            tensor1,
+                            tensor2,
+                        )
                         # pairs_prev = pairs
                         y_hat = tie_breaking(pairs)[0]
                         probs_hat = tie_breaking(probs)[0]
@@ -755,27 +836,35 @@ class E2E(E2ETransformer):
                         # if len(mask) > 0:
                         #    mask[0], mask[-1] = True, True
                         mask_idx = torch.nonzero(mask).squeeze(-1)
-                        confident_idx = torch.nonzero(
-                            mask == False).squeeze(-1)
+                        confident_idx = torch.nonzero(mask == False).squeeze(-1)
                         mask_num = len(mask_idx)
                         iter_decode = False
-                        y_in = torch.zeros(
-                            1, len(y_idx), dtype=torch.long) + self.mask_token
+                        y_in = (
+                            torch.zeros(1, len(y_idx), dtype=torch.long)
+                            + self.mask_token
+                        )
                         y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
 
                     else:
-                        y_in = torch.zeros(
-                            1, len(y_idx), dtype=torch.long) + self.mask_token
+                        y_in = (
+                            torch.zeros(1, len(y_idx), dtype=torch.long)
+                            + self.mask_token
+                        )
                         y_in[0] = y_hat[y_idx]
 
                         # there are some empty samples in TEDLIUM2
                         if len(y_in[0]) > 0:
                             pred, _ = self.decoder(
-                                y_in, None, h_pad[:, t1//subsample-bh:t1//subsample], None)
+                                y_in,
+                                None,
+                                h_pad[:, t1 // subsample - bh : t1 // subsample],
+                                None,
+                            )
                             pred = self.decoder_output_layer(pred)
                             pred_probs = pred[0].softmax(dim=-1)
                             pred_score = pred_probs.gather(
-                                1, y_in[0].unsqueeze(-1)).squeeze(-1)
+                                1, y_in[0].unsqueeze(-1)
+                            ).squeeze(-1)
                             logging.info("pred_score:{}".format(pred_score))
                             mask = torch.nonzero(pred_score < p_thres)
                             mask_idx = mask.squeeze(-1)
@@ -789,17 +878,17 @@ class E2E(E2ETransformer):
                     logging.info("fil:{}".format(n2s(y_in[0].tolist())))
                     mask_num_concat = 0
                     iter_decode = False
-                    if (t+1) % (block_len * subsample * (1+cache_len) // 2) == 0:
+                    if (t + 1) % (block_len * subsample * (1 + cache_len) // 2) == 0:
                         iter_decode = True
                         if cache_len > 0:
-                            hist_length = sum(
-                                y_in_length_cache[-cache_len:])
+                            hist_length = sum(y_in_length_cache[-cache_len:])
                         else:
                             hist_length = 0
-                        mask_hist = mask_cache[len(mask_cache) - hist_length:]
+                        mask_hist = mask_cache[len(mask_cache) - hist_length :]
 
                         mask_idx_concat = torch.nonzero(
-                            torch.cat([mask_hist, mask])).squeeze(-1)
+                            torch.cat([mask_hist, mask])
+                        ).squeeze(-1)
                         mask_num_concat = len(mask_idx_concat)
 
                     logging.info("init msk:{}".format(n2s(y_in[0].tolist())))
@@ -810,88 +899,91 @@ class E2E(E2ETransformer):
                         pred_num = max(mask_num // K, 1)
                     else:
                         pred_num = 1
-                    logging.info(
-                        "predict {} tokens in each iteration".format(pred_num))
-                    if not mask_num_concat == 0 and recog_args.maskctc_n_iterations > 0 and iter_decode:
-                        y_in_hist = y_in_cache[:, y_in_cache.size(
-                            1) - hist_length:].clone()
+                    logging.info("predict {} tokens in each iteration".format(pred_num))
+                    if (
+                        not mask_num_concat == 0
+                        and recog_args.maskctc_n_iterations > 0
+                        and iter_decode
+                    ):
+                        y_in_hist = y_in_cache[
+                            :, y_in_cache.size(1) - hist_length :
+                        ].clone()
                         logging.info("y_in_hist:{}".format(y_in_hist))
-                        logging.info("hist length:{}".format(
-                            y_in_length_cache[-10:]))
-                        logging.info("y_in_cache:{}".format(
-                            y_in_cache[0, :-10]))
+                        logging.info("hist length:{}".format(y_in_length_cache[-10:]))
+                        logging.info("y_in_cache:{}".format(y_in_cache[0, :-10]))
 
                         y_in_hist[0][mask_hist] = self.mask_token
                         y_in_concat = torch.cat([y_in_hist, y_in], dim=-1)
-                        num_iter = K if mask_num_concat >= K and K > 0 else mask_num_concat
+                        num_iter = (
+                            K if mask_num_concat >= K and K > 0 else mask_num_concat
+                        )
                         # h_pad_in plus previous h_pad
-                        h_pad_in = h_pad[:, t1//subsample -
-                                         bh*(1+cache_len):t1//subsample, :]
+                        h_pad_in = h_pad[
+                            :,
+                            t1 // subsample - bh * (1 + cache_len) : t1 // subsample,
+                            :,
+                        ]
 
                         while len(mask_idx_concat) > 0:
-                            y_tmp = torch.arange(
-                                y_in_concat.size(1)).to(y_in_concat)
+                            y_tmp = torch.arange(y_in_concat.size(1)).to(y_in_concat)
                             y_tmp[mask_idx_concat] = -1
-                            _, cnt = y_tmp.unique_consecutive(
-                                return_counts=True)
-                            y_in_concat = y_in_concat[0][cnt.cumsum(
-                                0) - 1].unsqueeze(0)
+                            _, cnt = y_tmp.unique_consecutive(return_counts=True)
+                            y_in_concat = y_in_concat[0][cnt.cumsum(0) - 1].unsqueeze(0)
                             mask_idx_concat = torch.nonzero(
-                                y_in_concat[0] == self.mask_token).squeeze(-1)
-                            logging.info("shr:{}".format(
-                                n2s(y_in_concat[0].tolist())))
+                                y_in_concat[0] == self.mask_token
+                            ).squeeze(-1)
+                            logging.info("shr:{}".format(n2s(y_in_concat[0].tolist())))
 
-                            pred, _ = self.decoder(
-                                y_in_concat, None, h_pad_in, None)
+                            pred, _ = self.decoder(y_in_concat, None, h_pad_in, None)
                             pred_dlp = self.dlp_layer(pred)
                             _, pred_len = pred_dlp[0].max(dim=-1)
-                            y_tmp = [numpy.array([self.mask_token] * f.item())
-                                     if i in mask_idx_concat else y_in_concat[0][i].numpy()
-                                     for i, f in enumerate(pred_len)]
-                            y_tmp = torch.tensor(
-                                numpy.hstack(y_tmp)).unsqueeze(0)
+                            y_tmp = [
+                                numpy.array([self.mask_token] * f.item())
+                                if i in mask_idx_concat
+                                else y_in_concat[0][i].numpy()
+                                for i, f in enumerate(pred_len)
+                            ]
+                            y_tmp = torch.tensor(numpy.hstack(y_tmp)).unsqueeze(0)
                             y_in_concat = y_tmp.long()
                             mask_idx_concat = torch.nonzero(
-                                y_in_concat[0] == self.mask_token).squeeze(-1)
-                            logging.info("exp:{}".format(
-                                n2s(y_in_concat[0].tolist())))
+                                y_in_concat[0] == self.mask_token
+                            ).squeeze(-1)
+                            logging.info("exp:{}".format(n2s(y_in_concat[0].tolist())))
 
                             if len(mask_idx_concat) == 0:
                                 break
-                            pred, _ = self.decoder(
-                                y_in_concat, None, h_pad_in, None)
+                            pred, _ = self.decoder(y_in_concat, None, h_pad_in, None)
                             pred_y = self.decoder_output_layer(pred)
                             pred_y_score, pred_y_id = pred_y[0][mask_idx_concat].max(
-                                dim=-1)
+                                dim=-1
+                            )
                             # mask can be reduced after expanding
-                            _, cand = torch.topk(pred_y_score, min(
-                                pred_num, len(mask_idx_concat)), -1)
-                            y_in_concat[0][mask_idx_concat[cand]
-                                           ] = pred_y_id[cand]
+                            _, cand = torch.topk(
+                                pred_y_score, min(pred_num, len(mask_idx_concat)), -1
+                            )
+                            y_in_concat[0][mask_idx_concat[cand]] = pred_y_id[cand]
                             mask_idx_concat = torch.nonzero(
-                                y_in_concat[0] == self.mask_token).squeeze(-1)
-                            logging.info("pre:{}".format(
-                                n2s(y_in_concat[0].tolist())))
+                                y_in_concat[0] == self.mask_token
+                            ).squeeze(-1)
+                            logging.info("pre:{}".format(n2s(y_in_concat[0].tolist())))
                         logging.info("------------")
-                        logging.info("msk:{}".format(
-                            n2s(y_in_concat[0].tolist())))
+                        logging.info("msk:{}".format(n2s(y_in_concat[0].tolist())))
                         logging.info("------------")
 
-                        ret[len(ret)-hist_length:] = y_in_concat.tolist()[0]
+                        ret[len(ret) - hist_length :] = y_in_concat.tolist()[0]
 
                     else:
-                        pred_score = torch.zeros(
-                            (y_in.size(1),), dtype=torch.float) + 100
+                        pred_score = (
+                            torch.zeros((y_in.size(1),), dtype=torch.float) + 100
+                        )
                         y_in[0] = y_hat[y_idx]
                         ret = ret + y_in.tolist()[0]
                         logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
-                    mask_cache = torch.cat(
-                        [mask_cache, mask], dim=0)
-                    pred_score_cache = torch.cat(
-                        [pred_score_cache, pred_score])
+                    mask_cache = torch.cat([mask_cache, mask], dim=0)
+                    pred_score_cache = torch.cat([pred_score_cache, pred_score])
                     y_in_cache = torch.cat([y_in_cache, y_in], dim=-1)
                     y_in_length_cache.append(y_in.size(1))
-                    t1 = t+1
+                    t1 = t + 1
 
                     # pdb.set_trace()
                 if t == x.size(0) - 1:
@@ -923,18 +1015,14 @@ class E2E(E2ETransformer):
             # filtering
             p_thres = recog_args.maskctc_probability_threshold
             if recog_args.maskctc_filter_ctc_probability:
-                mask_idx = torch.nonzero(
-                    probs_hat[y_idx] < p_thres).squeeze(-1)
-                confident_idx = torch.nonzero(
-                    probs_hat[y_idx] >= p_thres).squeeze(-1)
+                mask_idx = torch.nonzero(probs_hat[y_idx] < p_thres).squeeze(-1)
+                confident_idx = torch.nonzero(probs_hat[y_idx] >= p_thres).squeeze(-1)
                 mask_num = len(mask_idx)
 
-                y_in = torch.zeros(
-                    1, len(y_idx), dtype=torch.long) + self.mask_token
+                y_in = torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
                 y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
             else:
-                y_in = torch.zeros(
-                    1, len(y_idx), dtype=torch.long) + self.mask_token
+                y_in = torch.zeros(1, len(y_idx), dtype=torch.long) + self.mask_token
                 y_in[0] = y_hat[y_idx]
 
                 # there are some empty samples in TEDLIUM2
@@ -942,14 +1030,12 @@ class E2E(E2ETransformer):
                     pred, _ = self.decoder(y_in, None, h, None)
                     pred = self.decoder_output_layer(pred)
                     pred_probs = pred[0].softmax(dim=-1)
-                    pred_score = pred_probs.gather(
-                        1, y_in[0].unsqueeze(-1)).squeeze(-1)
+                    pred_score = pred_probs.gather(1, y_in[0].unsqueeze(-1)).squeeze(-1)
                     mask_idx = torch.nonzero(pred_score < p_thres).squeeze(-1)
                     y_in[0][mask_idx] = self.mask_token
                     mask_num = len(mask_idx)
                 else:
-                    mask_idx = torch.nonzero(
-                        y_in[0] == self.mask_token).squeeze(-1)
+                    mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
                     mask_num = len(mask_idx)  # should be 0
             logging.info("fil:{}".format(n2s(y_in[0].tolist())))
 
@@ -959,27 +1045,28 @@ class E2E(E2ETransformer):
                 pred_num = max(mask_num // K, 1)
             else:
                 pred_num = 1
-            logging.info(
-                "predict {} tokens in each iteration".format(pred_num))
+            logging.info("predict {} tokens in each iteration".format(pred_num))
 
             while len(mask_idx) > 0:
                 y_tmp = torch.arange(y_in.size(1)).to(y_in)
                 y_tmp[mask_idx] = -1
                 _, cnt = y_tmp.unique_consecutive(return_counts=True)
                 y_in = y_in[0][cnt.cumsum(0) - 1].unsqueeze(0)
-                mask_idx = torch.nonzero(
-                    y_in[0] == self.mask_token).squeeze(-1)
+                mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
                 logging.info("shr:{}".format(n2s(y_in[0].tolist())))
 
                 pred, _ = self.decoder(y_in, None, h, None)
                 pred_dlp = self.dlp_layer(pred)
                 _, pred_len = pred_dlp[0].max(dim=-1)
-                y_tmp = [numpy.array([self.mask_token] * f.item()) if i in mask_idx else y_in[0]
-                         [i].numpy() for i, f in enumerate(pred_len)]
+                y_tmp = [
+                    numpy.array([self.mask_token] * f.item())
+                    if i in mask_idx
+                    else y_in[0][i].numpy()
+                    for i, f in enumerate(pred_len)
+                ]
                 y_tmp = torch.tensor(numpy.hstack(y_tmp)).unsqueeze(0)
                 y_in = y_tmp.long()
-                mask_idx = torch.nonzero(
-                    y_in[0] == self.mask_token).squeeze(-1)
+                mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
                 logging.info("exp:{}".format(n2s(y_in[0].tolist())))
 
                 if len(mask_idx) == 0:
@@ -989,11 +1076,9 @@ class E2E(E2ETransformer):
                 pred_y = self.decoder_output_layer(pred)
                 pred_y_score, pred_y_id = pred_y[0][mask_idx].max(dim=-1)
                 # mask can be reduced after expanding
-                _, cand = torch.topk(pred_y_score, min(
-                    pred_num, len(mask_idx)), -1)
+                _, cand = torch.topk(pred_y_score, min(pred_num, len(mask_idx)), -1)
                 y_in[0][mask_idx[cand]] = pred_y_id[cand]
-                mask_idx = torch.nonzero(
-                    y_in[0] == self.mask_token).squeeze(-1)
+                mask_idx = torch.nonzero(y_in[0] == self.mask_token).squeeze(-1)
                 logging.info("pre:{}".format(n2s(y_in[0].tolist())))
 
             logging.info("------------")

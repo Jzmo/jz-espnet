@@ -71,18 +71,24 @@ def mask_uniform_dlp(ys_pad, mask_token, eos, ignore_id):
 
         ys_in_del[i][idx] = mask_token
 
-        unmask_idx = torch.arange(ylen).to(ys[i]).masked_fill(
-            (ys_in_del[i] == mask_token), ignore_id)
+        unmask_idx = (
+            torch.arange(ylen)
+            .to(ys[i])
+            .masked_fill((ys_in_del[i] == mask_token), ignore_id)
+        )
         _, dur = unmask_idx.unique_consecutive(return_counts=True)
 
         ys_in_del[i] = ys_in_del[i][dur.cumsum(0) - 1]
-        dur_out_del.append(dur.masked_fill(
-            (ys_in_del[i] != mask_token), ignore_id))
+        dur_out_del.append(dur.masked_fill((ys_in_del[i] != mask_token), ignore_id))
 
-    ys_in_ins = [torch.stack([y.new(y.size()).fill_(
-        ignore_id), y.clone()]).t().flatten() for y in ys]
-    dur_out_ins = [torch.stack([y.new(y.size()).fill_(0), y.new(
-        y.size()).fill_(1)]).t().flatten() for y in ys]
+    ys_in_ins = [
+        torch.stack([y.new(y.size()).fill_(ignore_id), y.clone()]).t().flatten()
+        for y in ys
+    ]
+    dur_out_ins = [
+        torch.stack([y.new(y.size()).fill_(0), y.new(y.size()).fill_(1)]).t().flatten()
+        for y in ys
+    ]
     for i in range(len(ys)):
         ylen = len(ys[i])
         num_samples = numpy.random.randint(1, ylen + 1)

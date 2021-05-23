@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-
+set -x
 if [ -z "${PS1:-}" ]; then
     PS1=__dummy__
 fi

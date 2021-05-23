@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 # Copyright 2017 Johns Hopkins University (Shinji Watanabe)
 #  Apache 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
 
@@ -8,8 +10,9 @@
 set -x 
 # general configuration
 backend=pytorch
-stage=5        # start from 0 if you need to start from data preparation
-stop_stage=5
+stage=-1        # start from 0 if you need to start from data preparation
+stop_stage=-1
+
 ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -20,7 +23,8 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_conformer_maskctc.yaml
+train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
+
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_iter0_bl16.yaml
 
@@ -38,7 +42,7 @@ n_average=10
 use_valbest_average=true     # if true, the validation `n_average`-best ASR models will be averaged.
 
 # data
-data=~/corpora/aishell
+data=/scratch/groups/swatana4/aishell/
 data_url=www.openslr.org/resources/33
 
 # exp tag
@@ -83,6 +87,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     ### But you can utilize Kaldi recipes in most cases
     echo "stage 1: Feature Generation"
     fbankdir=fbank
+
     # Generate the fbank features; by default 80-dimensional fbanks with pitch on each frame
     steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj 32 --write_utt2num_frames true \
         data/train exp/make_fbank/train ${fbankdir}
@@ -100,7 +105,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     utils/perturb_data_dir_speed.sh 1.1 data/train data/temp3
     utils/combine_data.sh --extra-files utt2uniq data/${train_set} data/temp1 data/temp2 data/temp3
     rm -r data/temp1 data/temp2 data/temp3
-    steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj 32 --write_utt2num_frames true \
+
+    steps/make_fbank_pitch.sh --cmd "$train_cmd" --nj 6 --write_utt2num_frames true \
         data/${train_set} exp/make_fbank/${train_set} ${fbankdir}
     utils/fix_data_dir.sh data/${train_set}
 
@@ -119,11 +125,12 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         /export/a{11,12,13,14}/${USER}/espnet-data/egs/${split_dir}/dump/${train_dev}/delta${do_delta}/storage \
         ${feat_dt_dir}/storage
     fi
-    dump.sh --cmd "$train_cmd" --nj 32 --do_delta ${do_delta} \
+    dump.sh --cmd "$train_cmd" --nj 6 --do_delta ${do_delta} \
         data/${train_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/train ${feat_tr_dir}
+
     for rtask in ${recog_set}; do
         feat_recog_dir=${dumpdir}/${rtask}/delta${do_delta}; mkdir -p ${feat_recog_dir}
-        dump.sh --cmd "$train_cmd" --nj 10 --do_delta ${do_delta} \
+        dump.sh --cmd "$train_cmd" --nj 8 --do_delta ${do_delta} \
             data/${rtask}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/recog/${rtask} \
             ${feat_recog_dir}
     done
@@ -231,6 +238,7 @@ fi
 
 if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
     echo "stage 5: Decoding"
+
     nj=20
         if [[ $(get_yaml.py ${train_config} model-module) = *transformer* ]] || \
        [[ $(get_yaml.py ${train_config} model-module) = *conformer* ]] || \
@@ -249,6 +257,7 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
 	    --out ${expdir}/results/${recog_model} \
 	    --num ${n_average} \
 	    ${average_opts}
+
     fi
 
     pids=() # initialize pids

@@ -247,7 +247,7 @@ class Decoder(BatchScorerInterface, torch.nn.Module):
             self.output_layer = torch.nn.Linear(attention_dim, odim)
         else:
             self.output_layer = None
-            
+
     def forward(self, tgt, tgt_mask, memory, memory_mask):
         """Forward decoder.
 

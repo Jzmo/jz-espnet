@@ -43,7 +43,7 @@ transformer-init: pytorch
 report-cer: true
 report-wer: true
 
-n-iter-processes: 16
+n-iter-processes: 8
 block-length: 8
 
 transformer-encoder-pos-enc-layer-type: rel_pos
