@@ -27,10 +27,7 @@ def get_token_level_ids_probs(ctc_ids, ctc_probs):
         while cnt < ctc_ids.shape[1] and y == ctc_ids[0][cnt]:
             if probs_hat[i] < ctc_probs[0][cnt]:
                 probs_hat[i] = ctc_probs[0][cnt].item()
-            try:
-                y_score[i].append(score[cnt])
-            except:
-                pdb.set_trace()
+            y_score[i].append(score[cnt])
             cnt += 1
             if cnt == bh+1:
                 cidx = i
@@ -131,7 +128,7 @@ def dynamic_matching(tensor1, tensor2, prob1=None, prob2=None, reserved_t=None, 
     pos1 = np.nonzero(dp_light[:, -1] == opt1)[0][-1]
     opt2 = np.min(dp_light[-1, :])
     pos2 = np.nonzero(dp_light[-1, :] == opt2)[0][-1]
-
+    '''
     if pos1 == M and pos2 == N:
         end_point = (M, N)
     elif opt1 < opt2:
@@ -140,7 +137,9 @@ def dynamic_matching(tensor1, tensor2, prob1=None, prob2=None, reserved_t=None, 
         end_point = (M, pos2)
     else:
         end_point = (M, N)
-    end_point = (M, N)
+    '''
+    end_point = (pos1, N)
+    '''
     reserved_t = (tensor2[end_point[1]:], tensor1[end_point[0]:])
     reserved_p = (prob2[end_point[1]:], prob1[end_point[0]:])
 
@@ -149,7 +148,7 @@ def dynamic_matching(tensor1, tensor2, prob1=None, prob2=None, reserved_t=None, 
     else:
         dp_light = dp_light[:end_point[0]+1, :end_point[1]+1]
     logging.info('1')
-
+    '''
     return dp_light, \
         dp[end_point[0]][end_point[1]][1], \
         dp[end_point[0]][end_point[1]][2], \
@@ -263,9 +262,6 @@ def dynamic_matching_xl2(t1, t2, prob1, prob2,
     reserved_t = (tensor2[end_point[1]:], tensor1[end_point[0]:])
     reserved_p = (prob2[end_point[1]:], prob1[end_point[0]:])
 
-    logging.info("tensor1:{}".format(tensor1))
-    logging.info("tensor2:{}".format(tensor2))
-    logging.info("reserved:{}".format(reserved_t))
     # pdb.set_trace()
     # reserve_dim = 5
     # dim1, dim2 = max(0, M - reserve_dim), max(0, N - reserve_dim)

@@ -22,13 +22,15 @@ def main():
                     val_scores += [[log["epoch"], 1 / log["val_perplexity"]]]
             elif args.metric == "loss":
                 if "validation/main/loss" in log.keys():
-                    val_scores += [[log["epoch"], -log["validation/main/loss"]]]
+                    val_scores += [[log["epoch"], -
+                                    log["validation/main/loss"]]]
             elif args.metric == "bleu":
                 if "validation/main/bleu" in log.keys():
                     val_scores += [[log["epoch"], log["validation/main/bleu"]]]
             elif args.metric == "cer_ctc":
                 if "validation/main/cer_ctc" in log.keys():
-                    val_scores += [[log["epoch"], -log["validation/main/cer_ctc"]]]
+                    val_scores += [[log["epoch"], -
+                                    log["validation/main/cer_ctc"]]]
             else:
                 # Keep original order for compatibility
                 if "validation/main/acc" in log.keys():
@@ -36,7 +38,8 @@ def main():
                 elif "val_perplexity" in log.keys():
                     val_scores += [[log["epoch"], 1 / log["val_perplexity"]]]
                 elif "validation/main/loss" in log.keys():
-                    val_scores += [[log["epoch"], -log["validation/main/loss"]]]
+                    val_scores += [[log["epoch"], -
+                                    log["validation/main/loss"]]]
 
         if len(val_scores) == 0:
             raise ValueError("%s is not found in log." % args.metric)
@@ -50,12 +53,13 @@ def main():
             + str(sorted_val_scores[: args.num, 0].astype(np.int64))
         )
         last = [
-            os.path.dirname(args.snapshots[0]) + "/snapshot.ep.%d" % (int(epoch))
+            os.path.dirname(args.snapshots[0]) +
+            "/snapshot.ep.%d" % (int(epoch))
             for epoch in sorted_val_scores[: args.num, 0]
         ]
     else:
         last = sorted(args.snapshots, key=os.path.getmtime)
-        last = last[-args.num :]
+        last = last[-args.num:]
     print("average over", last)
     avg = None
 
@@ -63,21 +67,26 @@ def main():
         import torch
 
         # sum
+        n_checkpoints = 0
         for path in last:
-            states = torch.load(path, map_location=torch.device("cpu"))["model"]
-            if avg is None:
-                avg = states
-            else:
-                for k in avg.keys():
-                    avg[k] += states[k]
+            if os.path.exists(path):
+                n_checkpoints += 1
+                states = torch.load(
+                    path, map_location=torch.device("cpu"))["model"]
+                print(path)
+                if avg is None:
+                    avg = states
+                else:
+                    for k in avg.keys():
+                        avg[k] += states[k]
 
         # average
         for k in avg.keys():
             if avg[k] is not None:
                 if avg[k].is_floating_point():
-                    avg[k] /= args.num
+                    avg[k] /= n_checkpoints
                 else:
-                    avg[k] //= args.num
+                    avg[k] //= n_checkpoints
 
         torch.save(avg, args.out)
 
@@ -98,13 +107,15 @@ def main():
             if avg[k] is not None:
                 avg[k] /= args.num
         np.savez_compressed(args.out, **avg)
-        os.rename("{}.npz".format(args.out), args.out)  # numpy save with .npz extension
+        # numpy save with .npz extension
+        os.rename("{}.npz".format(args.out), args.out)
     else:
         raise ValueError("Incorrect type of backend")
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="average models from snapshot")
+    parser = argparse.ArgumentParser(
+        description="average models from snapshot")
     parser.add_argument("--snapshots", required=True, type=str, nargs="+")
     parser.add_argument("--out", required=True, type=str)
     parser.add_argument("--num", default=10, type=int)

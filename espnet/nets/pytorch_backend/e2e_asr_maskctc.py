@@ -210,7 +210,7 @@ class E2E(E2ETransformer):
             "check model state mask token: {}".format(self.mask_token))
         # h = self.encode(x).unsqueeze(0)
         # block_len recog_args.xl_decode_block_length
-        block_len = 32
+        block_len = int(recog_args.block_length)
         bh = block_len//2
         # chuck_len = recog_args.xl_decode_chuck_length
         chuck_len = 1
@@ -221,7 +221,7 @@ class E2E(E2ETransformer):
         start = time.time()
         logging.warning("start time:{}".format(start))
 
-        if decode_mode == "onlin":
+        if decode_mode == "online":
             x = x[:x.size(0)//subsample * subsample, :]
             h_pad = torch.zeros(x.size(0)//subsample,
                                 self.adim, dtype=x.dtype).unsqueeze(0)
@@ -258,7 +258,10 @@ class E2E(E2ETransformer):
                         t0 = t1 - block_len * subsample // 2
                     else:
                         t0 = t1
-                    h_pad[:, t0//subsample:(t+1)//subsample, :] = hs
+                    try:
+                        h_pad[:, t0//subsample:(t+1)//subsample, :] = hs
+                    except:
+                        pass
                     # greedy ctc output
                     logging.info("intervel: {}, {}".format(
                         t1//subsample, t//subsample))
@@ -266,11 +269,24 @@ class E2E(E2ETransformer):
                     ctc_probs_curr, ctc_ids_curr = torch.exp(self.ctc.log_softmax(
                         hs)).max(dim=-1)
                     if ctc_ids_curr.size(1) % bh > 0:
+                        res = ctc_ids_curr.size(1) % bh
+                        ctc_probs_curr = torch.nn.functional.pad(
+                            ctc_probs_curr, (0, bh-res))
+                        ctc_ids_curr = torch.nn.functional.pad(
+                            ctc_ids_curr, (0, bh-res))
 
-                        ctc_probs_curr = ctc_probs_curr[:,
-                                                        :-(ctc_probs_curr.size(1) % bh)]
-                        ctc_ids_curr = ctc_ids_curr[:,
-                                                    :-(ctc_ids_curr.size(1) % bh)]
+                        try:
+                            if (sum(sum(ctc_ids_curr))) > 0:
+                                logging.warning("lat1:{}".format(bh-res))
+                                # ctc_ids_curr.size(1))ctc_ids_curr.size(1) -
+                                # numpy.max(numpy.nonzero(ctc_ids_curr[0].tolist()))))
+                            else:
+                                logging.warning("lat2:{}".format(-res))
+                                # block_len + ctc_ids_curr.size(1) -
+                                #                 numpy.max(numpy.nonzero(ctc_ids_prev[0].tolist()))))
+                        except:
+                            logging.warning('no lat:{}, {}'.format(
+                                ctc_ids_curr, ctc_ids_prev))
 
                     # get the y_hat and token level probs
                     y_hat_curr, probs_hat_curr, cidx = get_token_level_ids_probs(
@@ -436,7 +452,6 @@ class E2E(E2ETransformer):
             y_in[0][confident_idx] = y_hat[y_idx][confident_idx]
 
             logging.info("ctc:{}".format(n2s(y_in[0].tolist())))
-            pdb.set_trace()
             # iterative decoding
             if not mask_num == 0 and recog_args.maskctc_n_iterations > 0:
                 K = recog_args.maskctc_n_iterations
@@ -446,7 +461,7 @@ class E2E(E2ETransformer):
 
                     pred, _ = self.decoder(y_in, None, h, None)
                     pred_score, pred_id = pred[0][mask_idx].max(dim=-1)
-                    pdb.set_trace()
+
                     cand = torch.topk(pred_score, mask_num // num_iter, -1)[1]
                     y_in[0][mask_idx[cand]] = pred_id[cand]
                     mask_idx = torch.nonzero(

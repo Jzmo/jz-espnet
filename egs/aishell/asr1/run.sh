@@ -5,11 +5,11 @@
 
 . ./path.sh || exit 1;
 . ./cmd.sh || exit 1;
-
+set -x 
 # general configuration
 backend=pytorch
-stage=-1        # start from 0 if you need to start from data preparation
-stop_stage=-1
+stage=5        # start from 0 if you need to start from data preparation
+stop_stage=5
 ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
 dumpdir=dump   # directory to dump full features
@@ -20,9 +20,9 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_transformer_maskctc_block_bl16.yaml
+train_config=conf/tuning/train_pytorch_conformer_maskctc.yaml
 lm_config=conf/lm.yaml
-decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_iter0_bl32.yaml
+decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_iter0_bl16.yaml
 
 # rnnlm related
 lm_resume=         # specify a snapshot file to resume LM training
@@ -225,7 +225,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 fi
 
 if ${use_stearming}; then
-    recog_set="dev_unsegmented" # test_unsegmented"
+    recog_set="test_unsegmented"
 fi
 
 
@@ -244,11 +244,11 @@ if [ ${stage} -le 5 ] && [ ${stop_stage} -ge 5 ]; then
         else
             recog_model=model.last${n_average}.avg.best
         fi
-	#average_checkpoints.py --backend ${backend} \
-	#    --snapshots ${expdir}/results/snapshot.ep.* \
-	#    --out ${expdir}/results/${recog_model} \
-	#    --num ${n_average} \
-	#    ${average_opts}
+	average_checkpoints.py --backend ${backend} \
+	    --snapshots ${expdir}/results/snapshot.ep.* \
+	    --out ${expdir}/results/${recog_model} \
+	    --num ${n_average} \
+	    ${average_opts}
     fi
 
     pids=() # initialize pids
