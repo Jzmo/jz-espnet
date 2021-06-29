@@ -155,10 +155,10 @@ def dynamic_matching(
         end_point = (M, pos2)
     else:
         end_point = (M, N)
-<<<<<<< HEAD
+
     '''
     end_point = (pos1, N)
-
+    #end_point = (pos1, pos2)
     reserved_t = (tensor2[end_point[1]:], tensor1[end_point[0]:])
     reserved_p = (prob2[end_point[1]:], prob1[end_point[0]:])
 

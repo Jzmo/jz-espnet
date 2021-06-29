@@ -216,7 +216,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
 fi
 
 if ${use_stearming}; then
-    recog_set="dev_unsegmented" # test_unsegmented"
+    recog_set="dev_unsegmented test_unsegmented"
 fi
 
 
@@ -288,7 +288,7 @@ fi
 set -x 
 if [ ${stage} -le 200 ] && [ ${stop_stage} -ge 200 ]; then
     dir=data/
-    recog_set="dev"
+    recog_set="test"
     for task in ${recog_set}; do
 	task_new=${task}_unsegmented
 	if [ -d "${dir}/${task_new}" ]; then

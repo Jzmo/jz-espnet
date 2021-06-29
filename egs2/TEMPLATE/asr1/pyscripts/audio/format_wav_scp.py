@@ -146,6 +146,7 @@ def main():
                 uttid, wavpath = line.strip().split(None, 1)
 
                 if wavpath.endswith("|"):
+                    print(wavpath)
                     # Streaming input e.g. cat a.wav |
                     with kaldiio.open_like_kaldi(wavpath, "rb") as f:
                         with BytesIO(f.read()) as g:
@@ -240,4 +241,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    print(soundfile.available_formats())
+    exit()
+    #main()

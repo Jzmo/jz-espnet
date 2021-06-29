@@ -51,8 +51,8 @@ class Conv2dSubsampling(torch.nn.Module):
         """
         x = x.unsqueeze(1)  # (b, c, t, f)
         # need to be fixed
-        if x.size(2) % 4 == 0:
-            x = torch.nn.functional.pad(x, (0, 0, 2, 2))
+        #if x.size(2) % 4 == 0:
+        #    x = torch.nn.functional.pad(x, (0, 0, 2, 2))
         x = self.conv(x)
         b, c, t, f = x.size()
         x = self.out(x.transpose(1, 2).contiguous().view(b, t, c * f))

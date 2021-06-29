@@ -10,8 +10,8 @@ set -x
 set -x 
 # general configuration
 backend=pytorch
-stage=-1        # start from 0 if you need to start from data preparation
-stop_stage=-1
+stage=4        # start from 0 if you need to start from data preparation
+stop_stage=5
 
 ngpu=4         # number of gpus ("0" uses cpu, otherwise use gpu)
 debugmode=1
@@ -23,7 +23,8 @@ resume=        # Resume the training from snapshot
 # feature configuration
 do_delta=false
 
-train_config=conf/tuning/train_pytorch_transformer_maskctc.yaml
+preprocess_config=conf/specaug.yaml
+train_config=conf/tuning/train_pytorch_conformer_maskctc_block_bl16.yaml
 
 lm_config=conf/lm.yaml
 decode_config=conf/tuning/decode_pytorch_transformer_maskctc_online_iter0_bl16.yaml
@@ -172,6 +173,7 @@ ngramexpdir=exp/${ngramexpname}
 if [ -z ${ngramtag} ]; then
     ngramtag=${n_gram}
 fi
+
 mkdir -p ${ngramexpdir}
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
@@ -206,6 +208,9 @@ if [ -z ${tag} ]; then
     if ${do_delta}; then
         expname=${expname}_delta
     fi
+    if [ -n "${preprocess_config}" ]; then
+	expname=${expname}_$(basename ${preprocess_config%.*})
+    fi
 else
     expname=${train_set}_${backend}_${tag}
 fi
@@ -218,6 +223,7 @@ if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
         asr_train.py \
         --config ${train_config} \
         --ngpu ${ngpu} \
+	--preprocess-conf ${preprocess_config} \
         --backend ${backend} \
         --outdir ${expdir}/results \
         --tensorboard-dir tensorboard/${expname} \
