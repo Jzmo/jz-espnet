@@ -6,7 +6,6 @@
 . ./path.sh || exit 1;
 . ./cmd.sh || exit 1;
 
-set -x
 
 # general configuration
 backend=pytorch
