@@ -252,7 +252,7 @@ class E2E(E2ETransformer):
         chuck_len = 1
         subsample = 4
         cache_len = 3
-        decode_mode = recog_args.streaming_mode
+        decode_mode = 'window'
         logging.info("self.odim is {}".format(self.odim))
         if decode_mode == "window":
             x = x[: x.size(0) // subsample * subsample, :]
