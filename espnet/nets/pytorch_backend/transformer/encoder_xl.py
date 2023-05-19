@@ -119,6 +119,7 @@ class EncoderXL(torch.nn.Module):
                 dropout_rate,
                 pos_enc_class(attention_dim, positional_dropout_rate),
             )
+            self.conv_subsampling_factor = 4
         elif input_layer == "vgg2l":
             self.embed = VGG2L(idim, attention_dim)
         elif input_layer == "embed":
