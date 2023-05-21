@@ -332,10 +332,15 @@ class E2E(E2ETransformer):
                         )
 
                     # get the y_hat and token level probs
+                    # remove repeated tokens in ctc prediction, and get the y_hat and token level probs
+                    # cidx: ceter idx location after remove the repeated tokens
+                    # e.g. [0, 0, 1, 1, 0, 0, 3, 3, 0] --> [0, 1, 0, 3]
+                    # second column is the distance from cidx
+                    # cidx: 2
                     y_hat_curr, probs_hat_curr, cidx = get_token_level_ids_probs(
                         ctc_ids_curr, ctc_probs_curr
                     )
-                    # get pairs
+                    # find the most match pairs between y_hat_prev[cidx_prev:] and y_hat_curr[:cidx]
                     if t1 >= block_len * subsample:
                         (
                             dp,
@@ -356,7 +361,7 @@ class E2E(E2ETransformer):
                             rt,
                             rp,
                         )
-
+                        # select the final token by comparing their distances from cidx
                         y_hat, probs_hat = tie_breaking(pairs, probs)
                     else:
                         y_hat = y_hat_curr[:cidx, 0]
@@ -527,7 +532,6 @@ class E2E(E2ETransformer):
                 y_in[0] = y_hat[y_idx]
 
             ret = y_in.tolist()[0]
-
-        logging.warning("running time:{}".format(time.time() - start))
+            
         hyp = {"score": 0.0, "yseq": [self.sos] + ret + [self.eos]}
         return [hyp]
