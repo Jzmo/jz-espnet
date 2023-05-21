@@ -39,7 +39,8 @@ def get_token_level_ids_probs(ctc_ids, ctc_probs):
     for i, s in enumerate(y_score):
         score.append(s[len(s) // 2])
 
-    y_hat_score = torch.from_numpy(np.array([(i, j) for i, j in zip(y_hat, score)]))
+    y_hat_score = torch.from_numpy(
+        np.array([(i, j) for i, j in zip(y_hat, score)]))
 
     return y_hat_score, probs_hat, cidx
 
@@ -65,7 +66,28 @@ def tie_breaking(pairs, probs):
 def dynamic_matching(
     tensor1, tensor2, prob1=None, prob2=None, reserved_t=None, reserved_p=None
 ):
-
+    # find the most match pairs between tensor1 and tensor2
+    # 0 is allowed to insert in any position since it represent <blank>
+    # input: tensor1: predicted tokens for first prediction, with the corresponding distance to cidx
+    #             e.g [[0, 5], [499, 3], [0, 1]]
+    #        tensor2: [[0, 2], [499, 4]]
+    #        prob1:   [0.94, 0.64, 0.94]
+    #        prob2:   [0.98, 0.26]
+    #        reserved_t, reserved_p: not used
+    # return: dp_light: editdistance matrix for all matching route (not used)
+    #                   e.g.[[0, 1, 2],
+    #                        [1, 0, 1],
+    #                        [2, 1, 0],
+    #                        [3, 2, 1]]
+    #         pairs: (stored in dp[M][N][1]):
+    #                e.g.[([0, 5], [0, 2]),
+    #                     ([499, 3], [499, 4]),
+    #                     ([0, 1], [0, 4])]
+    #         probs: (stored in dp[M][N][2]):
+    #                e.g.[(0.94, 0.98),
+    #                     (0.64, 0.26),
+    #                     (0.94, 0)]
+    #         the rest returned value are not used
     tensor1 = tensor1.tolist()
     tensor2 = tensor2.tolist()
     prob1 = prob1.tolist()
@@ -131,7 +153,8 @@ def dynamic_matching(
                     dp[i][j][1] = dp[i - 1][j - 1][1] + [
                         (tensor1[i - 1], tensor2[j - 1])
                     ]
-                    dp[i][j][2] = dp[i - 1][j - 1][2] + [(prob1[i - 1], prob2[j - 1])]
+                    dp[i][j][2] = dp[i - 1][j - 1][2] + \
+                        [(prob1[i - 1], prob2[j - 1])]
                 if idx == 1:
                     dp[i][j][1] = dp[i - 1][j][1] + [
                         (tensor1[i - 1], [0, tensor2[j - 1][1]])
@@ -143,37 +166,40 @@ def dynamic_matching(
                     ]
                     dp[i][j][2] = dp[i][j - 1][2] + [(0, prob2[j - 1])]
     dp_light = np.array([[n[0] for n in m] for m in dp])
+    # minimum editdistance if end without matching all tensor1 tokens
     opt1 = np.min(dp_light[:, -1])
+    # end matching position in tensor1
     pos1 = np.nonzero(dp_light[:, -1] == opt1)[0][-1]
+    # minimum editdistance if end without matching all tensor2 tokens
     opt2 = np.min(dp_light[-1, :])
+    # end matching position in tensor2
     pos2 = np.nonzero(dp_light[-1, :] == opt2)[0][-1]
 
-    if pos1 == M and pos2 == N:
-        end_point = (M, N)
-    elif opt1 < opt2:
-        end_point = (pos1, N)
-    elif opt1 > opt2:
-        end_point = (M, pos2)
-    else:
-        end_point = (M, N)
+    # if pos1 == M and pos2 == N:
+    #    end_point = (M, N)
+    # elif opt1 < opt2:
+    #    end_point = (pos1, N)
+    # elif opt1 > opt2:
+    #    end_point = (M, pos2)
+    # else:
+    #    end_point = (M, N)
     end_point = (M, N)
-    reserved_t = (tensor2[end_point[1] :], tensor1[end_point[0] :])
-    reserved_p = (prob2[end_point[1] :], prob1[end_point[0] :])
+    #reserved_t = (tensor2[end_point[1]:], tensor1[end_point[0]:])
+    #reserved_p = (prob2[end_point[1]:], prob1[end_point[0]:])
 
-    if pos1 == M and pos2 == N:
-        dp_light = None
-    else:
-        dp_light = dp_light[: end_point[0] + 1, : end_point[1] + 1]
-    logging.info("1")
-
+    # if pos1 == M and pos2 == N:
+    #    dp_light = None
+    # else:
+    #    dp_light = dp_light[: end_point[0] + 1, : end_point[1] + 1]
+    # logging.info("1")
     return (
         dp_light,
         dp[end_point[0]][end_point[1]][1],
         dp[end_point[0]][end_point[1]][2],
-        tensor1[: end_point[0]],
-        tensor2[: end_point[1]],
-        reserved_t,
-        reserved_p,
+        None,  # tensor1[: end_point[0]],
+        None,  # tensor2[: end_point[1]],
+        None,  # reserved_t,
+        None,  # reserved_p,
     )
 
 
@@ -188,7 +214,8 @@ def dynamic_matching_xl(
     reserved_t=None,
     reserved_p=None,
 ):
-
+    # dynamic_matching_xl with longer previous predition does not work well
+    # only use function "dynamic_matching" by always setting "dp_prev" None
     if dp_prev is None:
         return dynamic_matching(t1, t2, prob1, prob2)
     # pdb.set_trace()
@@ -272,7 +299,8 @@ def dynamic_matching_xl(
                     dp[i][j][1] = dp[i - 1][j - 1][1] + [
                         (tensor1[i - 1], tensor2[j - 1])
                     ]
-                    dp[i][j][2] = dp[i - 1][j - 1][2] + [(prob1[i - 1], prob2[j - 1])]
+                    dp[i][j][2] = dp[i - 1][j - 1][2] + \
+                        [(prob1[i - 1], prob2[j - 1])]
                 if idx == 1:
                     dp[i][j][1] = dp[i - 1][j][1] + [(tensor1[i - 1], 0)]
                     dp[i][j][2] = dp[i - 1][j][2] + [(prob1[i - 1], 0)]
@@ -305,8 +333,8 @@ def dynamic_matching_xl(
 
     # end_point = (pos1, pos2)
     # pdb.set_trace()
-    reserved_t = (tensor2[end_point[1] :], tensor1[end_point[0] :])
-    reserved_p = (prob2[end_point[1] :], prob1[end_point[0] :])
+    reserved_t = (tensor2[end_point[1]:], tensor1[end_point[0]:])
+    reserved_p = (prob2[end_point[1]:], prob1[end_point[0]:])
 
     logging.info("tensor1:{}".format(tensor1))
     logging.info("tensor2:{}".format(tensor2))
